@@ -28,19 +28,35 @@ ext {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-batch'
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	/* Web & REST API */
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+
+	/* Spring Security */
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	/* JPA */
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	runtimeOnly 'com.mysql:mysql-connector-j' // MySQL JDBC Driver
+
+	/* Spring AI (OpenAI) */
 	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
-	compileOnly 'org.projectlombok:lombok'
-	runtimeOnly 'com.mysql:mysql-connector-j'
-	annotationProcessor 'org.projectlombok:lombok'
+
+	/* Redis 연동 */
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+	/* Spring Batch */
+	implementation 'org.springframework.boot:spring-boot-starter-batch'
+
+	/* Test */
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.batch:spring-batch-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	/* Lombok */
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
 }
 
 dependencyManagement {
