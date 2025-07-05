@@ -35,6 +35,7 @@ out/
 
 # 환경 설정 파일
 *.env
+.env
 *.local
 
 # 실행 파일
@@ -46,6 +47,6 @@ out/
 .vscode/
 
 ### Application.properties ###
-application.properties
-application-dev.properties
-application-prod.properties
+#application.properties
+#application-dev.properties
+#application-prod.properties
