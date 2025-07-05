@@ -33,6 +33,15 @@ out/
 /nbdist/
 /.nb-gradle/
 
+# 환경 설정 파일
+*.env
+*.local
+
+# 실행 파일
+*.log
+*.jar
+*.war
+
 ### VS Code ###
 .vscode/
 
