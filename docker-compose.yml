@@ -1,0 +1,129 @@
+version: '3.8'
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - springboot
+    networks:
+      - backend
+
+  springboot:
+    build:
+      context: ./SpringBoot
+      dockerfile: Dockerfile
+    container_name: springboot
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_SERVER=${DB_SERVER}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - REDIS_CACHE_HOST=${REDIS_CACHE_HOST}
+      - REDIS_CACHE_PORT=${REDIS_CACHE_PORT}
+      - REDIS_SESSION1_HOST=${REDIS_SESSION1_HOST}
+      - REDIS_SESSION1_PORT=${REDIS_SESSION1_PORT}
+      - REDIS_SESSION2_HOST=${REDIS_SESSION2_HOST}
+      - REDIS_SESSION2_PORT=${REDIS_SESSION2_PORT}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started
+      redis-session1:
+        condition: service_started
+      redis-session2:
+        condition: service_started
+    networks:
+      - backend
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASS}
+      - MYSQL_DATABASE=backendDB
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - backend
+
+  redis-cache:
+    image: redis:7.2
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+  redis-session1:
+    image: redis:7.2
+    container_name: redis-session1
+    ports:
+      - "6380:6379"
+    networks:
+      - backend
+
+  redis-session2:
+    image: redis:7.2
+    container_name: redis-session2
+    ports:
+      - "6381:6379"
+    networks:
+      - backend
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.21
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - backend
+
+#  prometheus:
+#    image: prom/prometheus:latest
+#    container_name: prometheus
+#    volumes:
+#      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+#    ports:
+#      - "9090:9090"
+#    networks:
+#      - backend
+#
+#  grafana:
+#    image: grafana/grafana:latest
+#    container_name: grafana
+#    ports:
+#      - "3000:3000"
+#    networks:
+#      - backend
+
+volumes:
+  mysql-data:
+
+networks:
+  backend:
+    driver: bridge 

@@ -35,7 +35,7 @@ out/
 
 # 환경 설정 파일
 *.env
-.env
+../.env
 *.local
 
 # 실행 파일
