@@ -5,7 +5,7 @@ COPY . .
 RUN gradle clean build -x test
 
 # --- 2단계: 실행 ---
-FROM openjdk:17-jdk-alpine
+FROM amazoncorretto:17-alpine
 WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 # 환경 변수는 docker-compose에서 주입
