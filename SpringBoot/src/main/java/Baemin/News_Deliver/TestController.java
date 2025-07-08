@@ -1,4 +1,4 @@
-package Baemin.News_Deliver.Global.Batch;
+package Baemin.News_Deliver;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -8,6 +8,6 @@ public class TestController {
 
     @GetMapping("/")
     public String index() {
-        return "hello world";
+        return "batch 구현 테스트3";
     }
 }
