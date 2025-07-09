@@ -1,4 +1,4 @@
-package Baemin.News_Deliver.Global.Batch.service;
+package Baemin.News_Deliver.Global.News.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;

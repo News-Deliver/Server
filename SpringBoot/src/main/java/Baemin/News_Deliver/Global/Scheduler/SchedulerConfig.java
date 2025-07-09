@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 public class SchedulerConfig {
 
     //@Scheduled(cron = "0 0 0 * * *") // 매일 자정마다 로드
-    //@Scheduled(cron = "*/3 * * * * *") //[테스트용] 스케쥴러 동작 확인용 3초마다 테스트
+    @Scheduled(cron = "*/3 * * * * *") //[테스트용] 스케쥴러 동작 확인용 3초마다 테스트
     public void dataBatchRun() {
         log.info("[Scheduler] database 배치 실행됨 - 시간: {}", LocalDateTime.now());
 

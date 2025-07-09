@@ -79,16 +79,24 @@ services:
   redis-session1:
     image: redis:7.2
     container_name: redis-session1
+    command: redis-server /usr/local/etc/redis/redis.conf
     ports:
       - "6380:6379"
+    volumes:
+      - redis-session1-data:/data
+      - ./redis/redis-session1.conf:/usr/local/etc/redis/redis.conf
     networks:
       - backend
 
   redis-session2:
     image: redis:7.2
     container_name: redis-session2
+    command: redis-server /usr/local/etc/redis/redis.conf
     ports:
       - "6381:6379"
+    volumes:
+      - redis-session2-data:/data
+      - ./redis/redis-session2.conf:/usr/local/etc/redis/redis.conf
     networks:
       - backend
 
@@ -124,7 +132,9 @@ services:
 
 volumes:
   mysql-data:
+  redis-session1-data:
+  redis-session2-data:
 
 networks:
   backend:
-    driver: bridge 
+    driver: bridge
