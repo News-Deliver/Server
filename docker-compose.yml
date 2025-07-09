@@ -33,6 +33,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+      - DEEPSEARCH_API_KEY=${DEEPSEARCH_API_KEY}
     ports:
       - "8080:8080"
     depends_on:
@@ -53,8 +54,8 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASS}
       - MYSQL_DATABASE=backendDB
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASS}
+      #- MYSQL_USER=${DB_USER}
+      #- MYSQL_PASSWORD=${DB_PASS}
     ports:
       - "3306:3306"
     healthcheck:
