@@ -33,7 +33,6 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
-      - DEEPSEARCH_API_KEY=${DEEPSEARCH_API_KEY}
     ports:
       - "8080:8080"
     depends_on:
@@ -54,8 +53,8 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASS}
       - MYSQL_DATABASE=backendDB
-      #- MYSQL_USER=${DB_USER}
-      #- MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
     ports:
       - "3306:3306"
     healthcheck:
@@ -79,16 +78,24 @@ services:
   redis-session1:
     image: redis:7.2
     container_name: redis-session1
+    command: redis-server /usr/local/etc/redis/redis.conf
     ports:
       - "6380:6379"
+    volumes:
+      - redis-session1-data:/data
+      - ./redis/redis-session1.conf:/usr/local/etc/redis/redis.conf
     networks:
       - backend
 
   redis-session2:
     image: redis:7.2
     container_name: redis-session2
+    command: redis-server /usr/local/etc/redis/redis.conf
     ports:
       - "6381:6379"
+    volumes:
+      - redis-session2-data:/data
+      - ./redis/redis-session2.conf:/usr/local/etc/redis/redis.conf
     networks:
       - backend
 
@@ -124,7 +131,9 @@ services:
 
 volumes:
   mysql-data:
+  redis-session1-data:
+  redis-session2-data:
 
 networks:
   backend:
-    driver: bridge 
+    driver: bridge
