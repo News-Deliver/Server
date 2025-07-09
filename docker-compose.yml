@@ -33,6 +33,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+      - DEEPSEARCH_API_KEY=${DEEPSEARCH_API_KEY}
     ports:
       - "8080:8080"
     depends_on:

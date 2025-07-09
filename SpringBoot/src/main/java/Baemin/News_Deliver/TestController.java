@@ -8,6 +8,6 @@ public class TestController {
 
     @GetMapping("/")
     public String index() {
-        return "batch 구현 테스트3";
+        return "batch 구현 테스트4";
     }
 }

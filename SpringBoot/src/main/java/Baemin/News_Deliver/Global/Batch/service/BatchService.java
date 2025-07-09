@@ -5,24 +5,24 @@ import Baemin.News_Deliver.Global.Batch.dto.NewsResponseDTO;
 import Baemin.News_Deliver.Global.Batch.entity.News;
 import Baemin.News_Deliver.Global.Batch.repository.NewsRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
 public class BatchService {
 
+    @Value("${deepsearch.api.key}")
+    private String apiKey;
+
     private final NewsRepository newsRepository;
 
     private static final String API_URL = "https://api-v2.deepsearch.com/v1/articles";
-    private static final String API_KEY = "Bearer a1464d64861841fd9133e01f47f4cff5";
-    //FIXME
-    //API_KEY 환경 변수로 뺄 것.
 
     //sections의 값들
     private static final String[] sections = {"politics", "economy", "society", "culture", "tech", "entertainment", "opinion"};
@@ -74,7 +74,7 @@ public class BatchService {
                 API_URL, section, pageSize, dateTo, dateFrom, page);
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", API_KEY);
+        headers.set("Authorization", apiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
@@ -95,6 +95,14 @@ public class BatchService {
                 news.setPublishedAt(item.getPublished_at());
                 news.setSections(section);
                 news.setPublisher(item.getPublisher());
+
+                LocalDate publishedDate = news.getPublishedAt().toLocalDate();
+                LocalDate yesterday = LocalDate.now().minusDays(1);
+
+                if (!publishedDate.isEqual(yesterday)) {
+                    System.out.println("[제외됨] 해당 뉴스는 어제가 아님: " + publishedDate);
+                    continue; // 저장하지 않고 다음 뉴스로 넘어감
+                }
 
                 newsRepository.save(news);
             }
