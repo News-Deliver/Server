@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -65,15 +66,21 @@ public class BatchService {
         long totalEnd = System.nanoTime(); // 전체 종료 시간
         double totalDuration = (totalEnd - totalStart) / 1_000_000_000.0;
         log.info(String.format("✅✅ 전체 배치 작업 완료 (총 %.2f초)", totalDuration));
-
     }
 
     private int fetchAndSavePage(int page, String section, int pageSize, String dateFrom, String dateTo) {
         RestTemplate restTemplate = new RestTemplate();
 
         // 쿼리 파라미터 구성
-        String url = String.format("%s/%s?page_size=%d&date_to=%s&date_from=%s&order=published_at&page=%d",
-                API_URL, section, pageSize, dateTo, dateFrom, page);
+        String url = UriComponentsBuilder.fromHttpUrl(API_URL)
+                .pathSegment(section)
+                .queryParam("page_size", pageSize)
+                .queryParam("date_to", dateTo)
+                .queryParam("date_from", dateFrom)
+                .queryParam("order", "published_at")
+                .queryParam("page", page)
+                .build()
+                .toUriString();
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", apiKey);
