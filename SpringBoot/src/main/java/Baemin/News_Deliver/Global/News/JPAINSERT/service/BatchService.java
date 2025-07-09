@@ -1,9 +1,9 @@
-package Baemin.News_Deliver.Global.Batch.service;
+package Baemin.News_Deliver.Global.News.JPAINSERT.service;
 
-import Baemin.News_Deliver.Global.Batch.dto.NewsItemDTO;
-import Baemin.News_Deliver.Global.Batch.dto.NewsResponseDTO;
-import Baemin.News_Deliver.Global.Batch.entity.News;
-import Baemin.News_Deliver.Global.Batch.repository.NewsRepository;
+import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsItemDTO;
+import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsResponseDTO;
+import Baemin.News_Deliver.Global.News.JPAINSERT.entity.News;
+import Baemin.News_Deliver.Global.News.JPAINSERT.repository.NewsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
