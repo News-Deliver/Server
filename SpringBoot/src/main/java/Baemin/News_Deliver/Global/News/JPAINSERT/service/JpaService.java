@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class BatchService {
+public class JpaService {
 
     @Value("${deepsearch.api.key}")
     private String apiKey;
@@ -73,6 +73,9 @@ public class BatchService {
         RestTemplate restTemplate = new RestTemplate();
 
         // 쿼리 파라미터 구성
+//        String url = String.format("%s/%s?page_size=%d&date_to=%s&date_from=%s&order=published_at&page=%d",
+//                API_URL, section, pageSize, dateTo, dateFrom, page);
+
         String url = UriComponentsBuilder.fromHttpUrl(API_URL)
                 .pathSegment(section)
                 .queryParam("page_size", pageSize)

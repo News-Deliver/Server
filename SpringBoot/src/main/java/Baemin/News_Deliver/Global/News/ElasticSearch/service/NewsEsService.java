@@ -22,7 +22,7 @@ public class NewsEsService {
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
             return new NewsItemDTO(
                     String.valueOf(rs.getLong("id")), // ES에서 id는 문자열이 좋음
-                    rs.getString("sections"), // 쉼표로 나눠서 List 변환
+                    List.of(rs.getString("sections").split(",")), // 쉼표로 나눠서 List 변환
                     rs.getString("title"),
                     rs.getString("publisher"),
                     rs.getString("summary"),
@@ -36,7 +36,7 @@ public class NewsEsService {
         return dtoList.stream()
                 .map(dto -> NewsEsDocument.builder()
                         .id(dto.getId())
-                        .sections(dto.getSections())
+                        .sections(dto.getSections().get(0))
                         .title(dto.getTitle())
                         .publisher(dto.getPublisher())
                         .summary(dto.getSummary())
