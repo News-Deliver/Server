@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:SpringBoot/src/main/java/Baemin/News_Deliver/Global/News/JPAINSERT/dto/NewsResponseDTO.java
-package Baemin.News_Deliver.Global.News.JPAINSERT.dto;
-========
-package Baemin.News_Deliver.Global.News.dto;
->>>>>>>> origin/dev:SpringBoot/src/main/java/Baemin/News_Deliver/Global/News/dto/NewsResponseDTO.java
+package Baemin.News_Deliver.Global.News.Batch.JPAINSERT.dto;
 
 import lombok.*;
 

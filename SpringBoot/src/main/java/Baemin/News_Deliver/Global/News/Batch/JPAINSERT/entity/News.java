@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:SpringBoot/src/main/java/Baemin/News_Deliver/Global/News/JPAINSERT/entity/News.java
-package Baemin.News_Deliver.Global.News.JPAINSERT.entity;
-========
-package Baemin.News_Deliver.Global.News.entity;
->>>>>>>> origin/dev:SpringBoot/src/main/java/Baemin/News_Deliver/Global/News/entity/News.java
+package Baemin.News_Deliver.Global.News.Batch.JPAINSERT.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -34,6 +30,7 @@ public class News {
     private LocalDateTime publishedAt;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean send = false;
 
     @Column(nullable = false, length = 100)

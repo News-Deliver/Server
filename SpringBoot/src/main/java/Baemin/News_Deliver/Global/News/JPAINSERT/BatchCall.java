@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:SpringBoot/src/main/java/Baemin/News_Deliver/Global/News/JPAINSERT/BatchCall.java
 package Baemin.News_Deliver.Global.News.JPAINSERT;
+========
+package Baemin.News_Deliver.Global.News.service;
+>>>>>>>> origin/dev:SpringBoot/src/main/java/Baemin/News_Deliver/Global/News/service/BatchCall.java
 
 import Baemin.News_Deliver.Global.News.JPAINSERT.service.BatchService;
 import lombok.RequiredArgsConstructor;
