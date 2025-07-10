@@ -40,7 +40,7 @@ dependencies {
 	runtimeOnly 'com.mysql:mysql-connector-j' // MySQL JDBC Driver
 
 	/* Spring AI (OpenAI) */
-	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+	// implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 
 	/* Redis 연동 */
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
@@ -76,9 +76,8 @@ dependencies {
 	//ElasticSearch
 	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
 
-
-	//ElasticSearch
-	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+	// dev tools
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
 }
 
