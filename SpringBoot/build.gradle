@@ -57,6 +57,9 @@ dependencies {
 	/* Lombok */
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
+
+	//ElasticSearch
+	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
 }
 
 dependencyManagement {

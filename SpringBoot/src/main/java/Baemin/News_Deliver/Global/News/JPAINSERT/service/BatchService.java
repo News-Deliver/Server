@@ -1,20 +1,24 @@
-package Baemin.News_Deliver.Global.News.service;
+package Baemin.News_Deliver.Global.News.JPAINSERT.service;
 
-import Baemin.News_Deliver.Global.News.dto.NewsItemDTO;
-import Baemin.News_Deliver.Global.News.dto.NewsResponseDTO;
-import Baemin.News_Deliver.Global.News.entity.News;
-import Baemin.News_Deliver.Global.News.repository.NewsRepository;
+import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsItemDTO;
+import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsResponseDTO;
+import Baemin.News_Deliver.Global.News.JPAINSERT.entity.News;
+import Baemin.News_Deliver.Global.News.JPAINSERT.repository.NewsRepository;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BatchService {
 
     @Value("${deepsearch.api.key}")
@@ -41,7 +45,7 @@ public class BatchService {
 
         int pageSize = 100;
 
-        System.out.println("검색한 기간 : " + dateFrom + " ~ " + dateTo);
+        log.info("검색한 기간 : " + dateFrom + " ~ " + dateTo);
 
         long totalStart = System.nanoTime(); // 전체 시작 시간
 
@@ -57,21 +61,27 @@ public class BatchService {
 
             long sectionEnd = System.nanoTime(); // 섹션별 종료 시간
             double sectionDuration = (sectionEnd - sectionStart) / 1_000_000_000.0;
-            System.out.printf("✅ [%s] 저장 완료 (총 %.2f초)\n", section, sectionDuration);
+            log.info(String.format("✅ [%s] 저장 완료 (총 %.2f초)", section, sectionDuration));
         }
 
         long totalEnd = System.nanoTime(); // 전체 종료 시간
         double totalDuration = (totalEnd - totalStart) / 1_000_000_000.0;
-        System.out.printf("✅✅ 전체 배치 작업 완료 (총 %.2f초)\n", totalDuration);
-
+        log.info(String.format("✅✅ 전체 배치 작업 완료 (총 %.2f초)", totalDuration));
     }
 
     private int fetchAndSavePage(int page, String section, int pageSize, String dateFrom, String dateTo) {
         RestTemplate restTemplate = new RestTemplate();
 
         // 쿼리 파라미터 구성
-        String url = String.format("%s/%s?page_size=%d&date_to=%s&date_from=%s&order=published_at&page=%d",
-                API_URL, section, pageSize, dateTo, dateFrom, page);
+        String url = UriComponentsBuilder.fromHttpUrl(API_URL)
+                .pathSegment(section)
+                .queryParam("page_size", pageSize)
+                .queryParam("date_to", dateTo)
+                .queryParam("date_from", dateFrom)
+                .queryParam("order", "published_at")
+                .queryParam("page", page)
+                .build()
+                .toUriString();
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", apiKey);
@@ -99,14 +109,9 @@ public class BatchService {
                 LocalDate publishedDate = news.getPublishedAt().toLocalDate();
                 LocalDate yesterday = LocalDate.now().minusDays(1);
 
-                if (!publishedDate.isEqual(yesterday)) {
-                    System.out.println("[제외됨] 해당 뉴스는 어제가 아님: " + publishedDate);
-                    continue; // 저장하지 않고 다음 뉴스로 넘어감
-                }
-
                 newsRepository.save(news);
             }
-            System.out.println("Page " + page + " 저장 완료 (" + body.getData().size() + "건)");
+            log.info("Page " + page + " 저장 완료 (" + body.getData().size() + "건)");
             return body.getTotal_pages(); // page == 1일 때만 유효
         }
 

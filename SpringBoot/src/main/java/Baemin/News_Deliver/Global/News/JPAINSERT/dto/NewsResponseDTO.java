@@ -1,4 +1,4 @@
-package Baemin.News_Deliver.Global.News.dto;
+package Baemin.News_Deliver.Global.News.JPAINSERT.dto;
 
 import lombok.*;
 
