@@ -14,14 +14,14 @@ public class Auth {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "auth_id")
+    @Column(name = "id")  // 컬럼명 변경: auth_id -> id
     private Long id;
 
-    @Column(name = "kakao_refresh_token", columnDefinition = "TEXT")
+    @Column(name = "kakao_refresh_key", columnDefinition = "VARCHAR(255)")  // 컬럼명 및 타입 변경
     private String kakaoRefreshToken;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_key", nullable = false)  // 컬럼명 변경: user_id -> user_key
     private User user;
 
     @Builder
