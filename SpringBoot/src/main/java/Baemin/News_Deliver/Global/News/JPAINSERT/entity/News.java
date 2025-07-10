@@ -30,6 +30,7 @@ public class News {
     private LocalDateTime publishedAt;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean send = false;
 
     @Column(nullable = false, length = 100)
