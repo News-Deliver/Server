@@ -1,5 +1,6 @@
 package Baemin.News_Deliver.Global.News.Batch.configuration;
 
+import Baemin.News_Deliver.Global.News.Batch.listener.BatchJobCompletionListener;
 import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsItemDTO;
 import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsResponseDTO;
 import Baemin.News_Deliver.Global.News.JPAINSERT.entity.News;
@@ -49,9 +50,12 @@ public class BatchConfig {
     private static final String[] sections = {"politics", "economy", "society", "culture", "tech", "entertainment", "opinion"};
 
     @Bean
-    public Job newsDataSaveJob(JobRepository jobRepository, Step newsDataSaveStep) {
+    public Job newsDataSaveJob(JobRepository jobRepository,
+                               Step newsDataSaveStep,
+                               BatchJobCompletionListener listener) {
         return new JobBuilder("newsDataSaveJob", jobRepository)
                 .start(newsDataSaveStep)
+                .listener(listener)
                 .build();
     }
 
