@@ -12,7 +12,7 @@ import java.util.List;
 @Builder
 public class NewsItemDTO {
     private String id; // 외부 ID (BigInt로 변환 가능)
-    private List<String> sections;
+    private String sections;
     private String title;
     private String publisher;
     private String summary;

@@ -14,7 +14,7 @@ CREATE TABLE news
     sections     VARCHAR(100) NOT NULL COMMENT '섹션',
     title        VARCHAR(255) NOT NULL COMMENT '기사의 제목',
     publisher    VARCHAR(255) NOT NULL COMMENT '발행처',
-    summary      VARCHAR(255) NOT NULL COMMENT '기사의 한줄요약',
+    summary      MEDIUMTEXT NOT NULL COMMENT '기사의 한줄요약',
     content_url  VARCHAR(255) NOT NULL COMMENT '기사의 url',
     published_at DATETIME     NOT NULL COMMENT '기사가 작성된 날짜',
     send         BOOLEAN      NOT NULL COMMENT '발송 여부',
