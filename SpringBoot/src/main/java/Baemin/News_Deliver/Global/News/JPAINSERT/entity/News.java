@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:SpringBoot/src/main/java/Baemin/News_Deliver/Global/News/JPAINSERT/entity/News.java
 package Baemin.News_Deliver.Global.News.JPAINSERT.entity;
-========
-package Baemin.News_Deliver.Global.News.entity;
->>>>>>>> origin/dev:SpringBoot/src/main/java/Baemin/News_Deliver/Global/News/entity/News.java
 
 import jakarta.persistence.*;
 import lombok.*;
