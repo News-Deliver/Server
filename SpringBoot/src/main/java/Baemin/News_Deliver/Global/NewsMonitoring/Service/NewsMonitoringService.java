@@ -57,7 +57,7 @@ public class NewsMonitoringService {
             int total_items = newsMonitoringManager.getTotalItems(section, dateFrom, dateTo);
 
             /* 뉴스 데이터 9000개 이상 시 중간 배치 + Redis 기록 */
-            if(total_items >= 3000 && total_items <= 18000){
+            if(total_items >= 9000 && total_items <= 18000){
 
                 // 해당 섹션이 이전에도 사전 Batch 작업이 실행 되었는지 확인 (Redis에서 횟수 조회)
                 int n = intermediateBatchRedisService.getBatchCount(section); log.info("사전 로그 현황 : {}", n);
