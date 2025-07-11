@@ -34,9 +34,9 @@ public class NewsMonitoringService {
      * 9000개가 넘는 섹션 발견 시, 즉시 DB에 Batch 실시
      *
      */
-    // @Scheduled(cron = "0 0 * * * *") // 매 시간 정각
-    //@Scheduled(cron = "0 */5 * * * *") // 5분
-    @Scheduled(cron = "0 * * * * *") // 1분
+    @Scheduled(cron = "0 0 * * * *") // 매 시간 정각
+    // @Scheduled(cron = "0 */5 * * * *") // 5분
+    // @Scheduled(cron = "0 * * * * *") // 1분
     public void monitoring(){
 
         /* 날짜 & 시간 확인 */
