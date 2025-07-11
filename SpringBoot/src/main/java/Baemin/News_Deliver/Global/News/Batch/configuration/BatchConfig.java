@@ -41,13 +41,7 @@ public class BatchConfig {
 
     @Value("${deepsearch.api.key}")
     private String apiKey;
-
-    private final NewsRepository newsRepository;
-
     private static final String API_URL = "https://api-v2.deepsearch.com/v1/articles";
-
-    //sections의 값들
-    private static final String[] sections = {"politics", "economy", "society", "culture", "tech", "entertainment", "opinion"};
 
     @Bean
     public Job newsDataSaveJob(JobRepository jobRepository,

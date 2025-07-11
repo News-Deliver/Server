@@ -2,6 +2,7 @@ package Baemin.News_Deliver.Global.NewsMonitoring.Manager;
 
 import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsItemDTO;
 import Baemin.News_Deliver.Global.NewsMonitoring.DTO.NewsSimpleResponseDTO;
+import Baemin.News_Deliver.Global.NewsMonitoring.Helper.NewsMonitoringHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,7 +20,6 @@ public class NewsMonitoringManager {
 
     @Value("${deepsearch.api.key}")
     private String apiKey;
-    private static final String API_URL = "https://api-v2.deepsearch.com/v1/articles";
 
     /**
      * page_size=1로 호출해서 해당 섹션의 total_items를 모니터링
@@ -35,12 +35,10 @@ public class NewsMonitoringManager {
         RestTemplate restTemplate = new RestTemplate();
 
         /* 해당 섹션의 total item 수 파악을 위한 http url 생성 */
-        String url = String.format("%s/%s?page_size=1&date_from=%s&date_to=%s&order=published_at",
-                API_URL, section, dateFrom, dateTo);
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", apiKey);
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(headers);
+        String url = NewsMonitoringHelper.buildUrl(section, 1, 1, dateFrom, dateTo);
+
+        /* Header 정의 메서드 호출 */
+        HttpEntity<String> entity = NewsMonitoringHelper.getAuthorizedEntity(apiKey);
 
         /* http 요청 후 totalItem 최종 반환 */
         try {
@@ -83,17 +81,19 @@ public class NewsMonitoringManager {
 
         /* http 요청 메타 데이터 - 다른 코드에도 중복 : 이후 global 처리 하기 */
         RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", apiKey);
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        /* Header 정의 메서드 호출 */
+        HttpEntity<String> entity = NewsMonitoringHelper.getAuthorizedEntity(apiKey);
 
         /* 집계된 수만큼만 뉴스 데이터 수집 */
         if(totalPages > 100) totalPages = 100; // 방어 코드 : 토탈 페이지가 100이 넘으면 100으로 Fix
         for (int page = 1; page <= totalPages; page++) {
-            String url = String.format("%s/%s?page_size=%d&page=%d&date_from=%s&date_to=%s&order=published_at",
-                    API_URL, section, 100, page, dateFrom, dateTo);
+
+            /* 중간 수집을 위한 url 생성 */
+            String url = NewsMonitoringHelper.buildUrl(section, 100, page, dateFrom, dateTo);
+
             try {
+                // http 요청
                 ResponseEntity<NewsSimpleResponseDTO> response = restTemplate.exchange(
                         url,
                         HttpMethod.GET,
@@ -103,7 +103,7 @@ public class NewsMonitoringManager {
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                     List<NewsItemDTO> dataList = response.getBody().getData();
                     allNews.addAll(dataList);
-                    log.info("[{}] {}페이지 수집 성공, {}건", section, page, dataList.size());
+                    // log.info("[{}] {}페이지 수집 성공, {}건", section, page, dataList.size());
                 } else {
                     log.warn("[{}] {}페이지 응답 실패", section, page); /* 예외 커스터 마이징 */
                 }
