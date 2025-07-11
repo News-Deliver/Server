@@ -37,20 +37,29 @@ public class KakaoTokenProvider {
      * 다른 개발자들이 가장 많이 사용할 메서드
      */
     public String getAccessToken(String kakaoId) {
+        log.info("카카오 액세스 토큰 발급 요청: kakaoId={}", kakaoId);
+
         try {
             // 1. 사용자 조회
             User user = userRepository.findByKakaoId(kakaoId)
                     .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
 
+            log.debug("사용자 조회 완료: userId={}", user.getId());
+
             // 2. Auth 정보 조회
             Auth auth = authRepository.findByUser(user)
                     .orElseThrow(() -> new RuntimeException("카카오 토큰이 유효하지 않습니다"));
 
+            log.debug("Auth 정보 조회 완료: refreshToken 존재={}", auth.getKakaoRefreshToken() != null);
+
             // 3. 리프레시 토큰으로 액세스 토큰 발급
-            return refreshAccessToken(auth.getKakaoRefreshToken());
+            String accessToken = refreshAccessToken(auth.getKakaoRefreshToken());
+
+            log.info("카카오 액세스 토큰 발급 성공: kakaoId={}", kakaoId);
+            return accessToken;
 
         } catch (Exception e) {
-            log.error("카카오 액세스 토큰 발급 실패: kakaoId = {}, error = {}", kakaoId, e.getMessage());
+            log.error("카카오 액세스 토큰 발급 실패: kakaoId={}, error={}", kakaoId, e.getMessage());
             throw new RuntimeException("카카오 토큰이 유효하지 않습니다");
         }
     }
@@ -60,6 +69,7 @@ public class KakaoTokenProvider {
      * User 객체를 이미 가지고 있을 때 사용
      */
     public String getAccessToken(User user) {
+        log.debug("User 객체로 토큰 발급 요청: userId={}", user.getId());
         return getAccessToken(user.getKakaoId());
     }
 
@@ -67,6 +77,8 @@ public class KakaoTokenProvider {
      * 리프레시 토큰으로 액세스 토큰 발급 (핵심 로직)
      */
     public String refreshAccessToken(String refreshToken) {
+        log.info("카카오 토큰 갱신 API 호출 시작: url={}", KAKAO_TOKEN_URL);
+
         try {
             // HTTP 헤더 설정
             HttpHeaders headers = new HttpHeaders();
@@ -79,30 +91,43 @@ public class KakaoTokenProvider {
             params.add("client_secret", kakaoClientSecret);
             params.add("refresh_token", refreshToken);
 
+            log.debug("카카오 API 요청 파라미터 설정 완료: client_id={}", kakaoClientId);
+
             // HTTP 요청 생성
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
 
             // 카카오 토큰 API 호출
+            log.debug("카카오 토큰 API 호출 중...");
             ResponseEntity<Map> response = restTemplate.postForEntity(KAKAO_TOKEN_URL, request, Map.class);
+
+            // 응답 상태 로깅
+            log.info("카카오 API 응답 수신: statusCode={}", response.getStatusCode());
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
+
+                log.debug("카카오 API 응답 키 확인: keys={}", responseBody.keySet());
+
                 String accessToken = (String) responseBody.get("access_token");
+                String tokenType = (String) responseBody.get("token_type");
+                Integer expiresIn = (Integer) responseBody.get("expires_in");
 
                 if (accessToken != null) {
-                    log.info("카카오 액세스 토큰 발급 성공");
+                    log.info("카카오 액세스 토큰 발급 성공: tokenType={}, expiresIn={}초", tokenType, expiresIn);
                     return accessToken;
                 } else {
-                    log.error("카카오 응답에 access_token이 없음: {}", responseBody);
+                    log.error("카카오 응답에 access_token이 없음: responseBody={}", responseBody);
                     throw new RuntimeException("카카오 토큰이 유효하지 않습니다");
                 }
             } else {
-                log.error("카카오 토큰 API 호출 실패: status = {}", response.getStatusCode());
+                log.error("카카오 토큰 API 호출 실패: statusCode={}, responseBody={}",
+                        response.getStatusCode(), response.getBody());
                 throw new RuntimeException("카카오 토큰이 유효하지 않습니다");
             }
 
         } catch (Exception e) {
-            log.error("카카오 토큰 갱신 중 오류 발생: {}", e.getMessage());
+            log.error("카카오 토큰 갱신 중 오류 발생: error={}, errorType={}",
+                    e.getMessage(), e.getClass().getSimpleName());
             throw new RuntimeException("카카오 토큰이 유효하지 않습니다");
         }
     }
@@ -112,6 +137,8 @@ public class KakaoTokenProvider {
      * 필요시 사용할 수 있는 헬퍼 메서드
      */
     public boolean validateAccessToken(String accessToken) {
+        log.debug("카카오 액세스 토큰 검증 시작");
+
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(accessToken);
@@ -126,9 +153,19 @@ public class KakaoTokenProvider {
                     Map.class
             );
 
-            return response.getStatusCode() == HttpStatus.OK;
+            boolean isValid = response.getStatusCode() == HttpStatus.OK;
+
+            log.info("카카오 토큰 검증 완료: isValid={}, statusCode={}", isValid, response.getStatusCode());
+
+            if (isValid && response.getBody() != null) {
+                Map<String, Object> userInfo = response.getBody();
+                log.debug("카카오 사용자 정보 확인: kakaoId={}", userInfo.get("id"));
+            }
+
+            return isValid;
+
         } catch (Exception e) {
-            log.debug("카카오 액세스 토큰 검증 실패: {}", e.getMessage());
+            log.warn("카카오 액세스 토큰 검증 실패: error={}", e.getMessage());
             return false;
         }
     }
