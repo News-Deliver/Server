@@ -1,0 +1,62 @@
+docker exec -it elasticsearch bin/elasticsearch-plugin install analysis-nori
+도커에 elasticsearch가 실행 중일 때 nori를 설치할 것.
+이후 elasticsearch 재시작
+
+아래 index를 elasticsearch에 생성할 것
+
+PUT http://localhost:9200/news-index-nori
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "korean_nori": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer",
+          "filter": [
+            "lowercase",
+            "nori_readingform",
+            "nori_pos_filter"
+          ]
+        }
+      },
+      "filter": {
+        "nori_pos_filter": {
+          "type": "nori_part_of_speech",
+          "stoptags": [
+            "E", "IC", "J", "MAG", "MAJ", "MM", "SP",
+            "SSC", "SSO", "SC", "SE",
+            "UNA", "NA", "VSV",
+            "VV", "VA", "VX", "VCP", "VCN",
+            "EC", "ETM", "ETN"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "summary": {
+        "type": "text",
+        "analyzer": "korean_nori",
+        "fielddata": true
+      },
+      "title": {
+        "type": "text",
+        "analyzer": "korean_nori",
+        "fielddata": true
+      },
+      "sections": {
+        "type": "keyword"
+      },
+      "publisher": {
+        "type": "keyword"
+      },
+      "content_url": {
+        "type": "keyword"
+      },
+      "published_at": {
+        "type": "date"
+      }
+    }
+  }
+}

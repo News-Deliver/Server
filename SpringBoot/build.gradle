@@ -73,11 +73,14 @@ dependencies {
 	/* JPA Auditing (@CreatedDate 등) */
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-	//ElasticSearch
-	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
-
 	// dev tools
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+	// Elasticsearch
+	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+
+	// jackson 데이터타입 모듈
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
 }
 
