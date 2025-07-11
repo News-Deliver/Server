@@ -79,6 +79,9 @@ dependencies {
 	// dev tools
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
+	// Jackson Datatype for Java 8 Date/Time API (뉴스 세팅에서 사용하는 임시 추가 파일 테스트 끝난 후 삭제 할 예정)
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
 }
 
 dependencyManagement {
