@@ -35,8 +35,10 @@ public class NewsMonitoringService {
      *
      */
     @Scheduled(cron = "0 0 * * * *") // 매 시간 정각
-    // @Scheduled(cron = "0 */5 * * * *") // 5분
-    // @Scheduled(cron = "0 * * * * *") // 1분
+    //@Scheduled(cron = "0 */5 * * * *") // 5분
+    // @Scheduled(cron = "0 */3 * * * *") // 3분
+    //@Scheduled(cron = "0 */2 * * * *") // 2분
+    //@Scheduled(cron = "0 * * * * *") // 1분
     public void monitoring(){
 
         /* 날짜 & 시간 확인 */
@@ -60,7 +62,8 @@ public class NewsMonitoringService {
             if(total_items >= 9000 && total_items <= 18000){
 
                 // 해당 섹션이 이전에도 사전 Batch 작업이 실행 되었는지 확인 (Redis에서 횟수 조회)
-                int n = intermediateBatchRedisService.getBatchCount(section); log.info("사전 로그 현황 : {}", n);
+                int n = intermediateBatchRedisService.getBatchCount(section);
+                log.info("{} 섹션 기존 중간 배치 현황 : 총 {}회 중간 배치 ",section, n);
 
                 // 현재 total_item이 기준(9000개)을 넘으면 Job Launcher로 Batch 작업 진행 메서드 호출
                 runNewsBatch(section);
@@ -78,11 +81,6 @@ public class NewsMonitoringService {
                 log.info("[#주의#] {}섹션의 total_items수 : {}",section,total_items); // 추후, 하루에 3번 이상의 중간 호출이 일어나는 것에 대한 방어코드도 작성할 것
 
             }
-//            else{
-//                // 현재 total_item이 기준(9000개)을 넘지 않으면, Batch 처리 생략
-//                // log.info("[{}] DB에 Batch 처리 생략",section);
-//            }
-
         }
     }
 
@@ -123,15 +121,13 @@ public class NewsMonitoringService {
         String dateTo = day.format(formatter); //문자열로 변환
         String dateFrom = day.format(formatter); //문자열로 변환
 
-        int pageSize = 100; // 요청할 페이지의 사이즈
-
         log.info("오늘의 날짜 : {}", day); // 오늘의 날짜 로그 확인
-        // long totalStart = System.nanoTime(); // 전체 시작 시간
 
         for (String section : sections) {
 
             // page_size=1로 호출해서 해당 섹션의 total_items를 모니터링
             int total_items = newsMonitoringManager.getTotalItems( section, dateFrom, dateTo);
+            log.info("{} 영역 total_items : {}",section, total_items);
 
         }
     }

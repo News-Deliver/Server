@@ -146,17 +146,8 @@ public class NewsMonitoringConfig {
     public ItemWriter<News> newsWriter_Monitoring(javax.sql.DataSource dataSource) {
 
         return items -> {
-            log.info("[임시] 저장 생략 - 전체 뉴스 개수: {}", items.size());
+            log.info("[임시 로직] 실제 저장하지는 않지만, newsWriter_Monitoring 기능 정상 작동 - 전체 뉴스 개수: {}", items.size());
         };
-
-        /* 실제로는 DB에 저장하지 않는 임시 로직 */
-//        return items -> {
-//            for (News news : items) {
-//                // 로그 출력 (또는 아무 작업도 안 함)
-//                log.info("[임시] 저장 생략 - 뉴스 제목:{}" , news.getTitle());
-//            }
-//            // 저장은 하지 않음
-//        };
 
         /* 실제 DB 저장 로직 */
 //        JdbcBatchItemWriter<News> writer = new JdbcBatchItemWriter<>();
