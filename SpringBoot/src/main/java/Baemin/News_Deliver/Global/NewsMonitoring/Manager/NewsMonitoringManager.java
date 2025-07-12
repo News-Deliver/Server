@@ -50,9 +50,8 @@ public class NewsMonitoringManager {
                     NewsSimpleResponseDTO.class // 응답
             );
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                int totalItems = response.getBody().getTotal_items();
-                log.info("[{}] total_items 수 : {}", section, totalItems);
-                return totalItems;
+
+                return response.getBody().getTotal_items();
             } else {
                 log.warn("[{}] 응답 실패 or 데이터 없음", section);  /* 예외 커스터마이징 */
             }
