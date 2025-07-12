@@ -14,6 +14,7 @@ import java.util.Set;
 @Service
 public class IntermediateBatchRedisService {
 
+    /* Redis Session1 연결 */
     private final RedisTemplate<String, Object> redisSession1Template;
     public IntermediateBatchRedisService(@Qualifier("redisSession1Template") RedisTemplate<String, Object> redisSession1Template) {
         this.redisSession1Template = redisSession1Template;
@@ -29,6 +30,7 @@ public class IntermediateBatchRedisService {
      */
     public int getBatchCount(String section) {
 
+        // 중간 배치 Key
         String key = BATCH_KEY_PREFIX + section;
 
         try {
@@ -36,7 +38,7 @@ public class IntermediateBatchRedisService {
             Object value = redisSession1Template.opsForValue().get(key);
             int result = (value != null) ? Integer.parseInt(value.toString()) : 0;
 
-            log.debug("Redis에서 {}의 중간 배치 횟수 조회: {}", section, result);
+            log.info("Redis에서 {}의 중간 배치 횟수 조회: {}", section, result);
             return result;
         } catch (Exception e) {
 
@@ -59,7 +61,7 @@ public class IntermediateBatchRedisService {
         try {
 
             redisSession1Template.opsForValue().increment(key);
-            redisSession1Template.expire(key, Duration.ofDays(1));  // TTL = 하루
+            redisSession1Template.expire(key, Duration.ofHours(12));  // TTL = 12 시간
 
             log.info("Redis에 {} 섹션 중간 배치 횟수 증가", section);
         } catch (Exception e) {
@@ -69,7 +71,7 @@ public class IntermediateBatchRedisService {
     }
 
     /**
-     * 자정이 되면 Redis 에 있는 IntermediateBatch 삭제하는 메서드
+     * 자정이 되면 Redis 에 있는 IntermediateBatch 중간 배치 기록 삭제 메서드
      *
      * 스케줄러에 적용?
      * 서비스에 적용?
@@ -93,13 +95,16 @@ public class IntermediateBatchRedisService {
     /**
      * 섹션 별 중간 배치 작업 횟수를 조회하는 메서드
      *
-     * @param sections 뉴스 섹션
      * @return <섹션, 중간 배치 작업 수>
      */
-    public Map<String, Integer> getAllBatchCountsForSections(String[] sections) {
+    public Map<String, Integer> getAllBatchCountsForSections() {
         Map<String, Integer> batchCountMap = new HashMap<>();
 
         try {
+            // 모든 섹션 정의
+            String[] sections = {"politics", "economy", "society", "culture", "tech", "entertainment", "opinion"};
+
+            // 각 섹션을 순회하며 중간 배치 작업 횟수 Map에 저장
             for (String section : sections) {
                 String key = BATCH_KEY_PREFIX + section;
                 Object value = redisSession1Template.opsForValue().get(key);
@@ -111,9 +116,11 @@ public class IntermediateBatchRedisService {
             log.error("Redis에서 섹션별 중간 배치 횟수 조회 실패: error={}", e.getMessage());
         }
 
+        // 각 섹션 별 중간 배치 작업 반환
         return batchCountMap;
     }
 
 
 
 }
+
