@@ -45,4 +45,7 @@ public class NewsEsDocument {
     )
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime published_at;
+
+    @Field(type = FieldType.Text, analyzer = "korean_nori")
+    private String combinedTokens;
 }

@@ -75,6 +75,7 @@ dependencies {
 
 	//ElasticSearch
 	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+	implementation 'co.elastic.clients:elasticsearch-java:8.13.0'
 
 	// dev tools
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
