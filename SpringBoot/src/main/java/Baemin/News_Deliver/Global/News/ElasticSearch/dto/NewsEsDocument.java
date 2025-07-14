@@ -1,19 +1,19 @@
 package Baemin.News_Deliver.Global.News.ElasticSearch.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.time.LocalDateTime;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-@Document(indexName = "news-index")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,24 +21,31 @@ import java.time.LocalDateTime;
 public class NewsEsDocument {
 
     @Id
-    private String id; // ES에서는 문자열 ID로 처리하는 게 일반적 (BigInt도 string으로 보낼 것)
+    private String id;
 
     @Field(type = FieldType.Keyword)
-    private String sections; // 분석기 미적용 (정확한 검색용)
+    private String sections;
 
-    @Field(type = FieldType.Text)
-    private String title; // 검색 가능한 필드
-
-    @Field(type = FieldType.Keyword)
-    private String publisher; // 발행처 (정확 일치 검색 목적)
-
-    @Field(type = FieldType.Text)
-    private String summary; // 기사 요약 (Full Text 검색 대상)
+    @Field(type = FieldType.Text, analyzer = "korean_nori")
+    private String title;
 
     @Field(type = FieldType.Keyword)
-    private String content_url; // URL은 분석기 필요 없음
+    private String publisher;
 
-    @Field(type = FieldType.Date)
-    private LocalDateTime published_at; // 날짜 필드 (검색, 정렬, range 조건 가능)
+    @Field(type = FieldType.Text, analyzer = "korean_nori")
+    private String summary;
 
+    @Field(type = FieldType.Keyword)
+    private String content_url;
+
+    @Field(
+            type = FieldType.Date,
+            format = DateFormat.date_time,
+            pattern = "yyyy-MM-dd'T'HH:mm:ss"
+    )
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    private LocalDateTime published_at;
+
+    @Field(type = FieldType.Text, analyzer = "korean_nori")
+    private String combinedTokens;
 }
