@@ -1,7 +1,6 @@
-# CI (Continuous Integration) 워크플로우
-#
-# 목적: 코드 품질 검사
-# 실행조건: Push, Pull Request 생성/수정 시
-#  추가할지 고민중
-# 주요기능:
-# - Java 17 환경에서 Spring Boot 애플리케이션 빌드
+# 정기 품질 모니터링
+# - SonarQube 분석
+# - 코드 복잡도 측정
+# - 기술 부채 추적
+# - 주간 품질 리포트
+# - 품질 개선 이슈 자동 생성
