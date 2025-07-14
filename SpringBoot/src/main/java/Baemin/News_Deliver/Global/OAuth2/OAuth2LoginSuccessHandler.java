@@ -2,10 +2,13 @@ package Baemin.News_Deliver.Global.OAuth2;
 
 import Baemin.News_Deliver.Domain.Auth.Entity.Auth;
 import Baemin.News_Deliver.Domain.Auth.Entity.User;
+import Baemin.News_Deliver.Domain.Auth.Exception.AuthException;
 import Baemin.News_Deliver.Domain.Auth.Repository.AuthRepository;
 import Baemin.News_Deliver.Domain.Auth.Repository.UserRepository;
+import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import Baemin.News_Deliver.Global.JWT.JwtTokenProvider;
 import Baemin.News_Deliver.Global.Redis.RedisService;
+import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -69,9 +72,12 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
             log.info("로그인 처리 완료: kakaoId = {}, userId = {}", kakaoId, user.getId());
 
+        } catch (AuthException e) {
+            log.error("로그인 처리 중 Auth 예외 발생: kakaoId = {}, errorCode = {}", kakaoId, e.getErrorcode().getErrorCode());
+            sendErrorResponse(response, e.getErrorcode());
         } catch (Exception e) {
-            log.error("로그인 처리 중 오류 발생: kakaoId = {}, error = {}", kakaoId, e.getMessage());
-            sendErrorResponse(response, "로그인 처리 중 오류가 발생했습니다.");
+            log.error("로그인 처리 중 예상치 못한 오류 발생: kakaoId = {}, error = {}", kakaoId, e.getMessage());
+            sendErrorResponse(response, ErrorCode.OAUTH2_PROCESS_FAILED);
         }
     }
 
@@ -91,6 +97,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             }
         } catch (Exception e) {
             log.error("카카오 리프레시 토큰 추출 실패: {}", e.getMessage());
+            throw new AuthException(ErrorCode.KAKAO_TOKEN_INVALID);
         }
         return null;
     }
@@ -101,12 +108,17 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     private User findOrCreateUser(String kakaoId) {
         return userRepository.findByKakaoId(kakaoId)
                 .orElseGet(() -> {
-                    User newUser = User.builder()
-                            .kakaoId(kakaoId)
-                            .build();
-                    User savedUser = userRepository.save(newUser);
-                    log.info("새 사용자 생성: kakaoId = {}, userId = {}", kakaoId, savedUser.getId());
-                    return savedUser;
+                    try {
+                        User newUser = User.builder()
+                                .kakaoId(kakaoId)
+                                .build();
+                        User savedUser = userRepository.save(newUser);
+                        log.info("새 사용자 생성: kakaoId = {}, userId = {}", kakaoId, savedUser.getId());
+                        return savedUser;
+                    } catch (Exception e) {
+                        log.error("사용자 생성 실패: kakaoId = {}, error = {}", kakaoId, e.getMessage());
+                        throw new AuthException(ErrorCode.USER_CREATION_FAILED);
+                    }
                 });
     }
 
@@ -114,22 +126,27 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
      * 카카오 리프레시 토큰 저장
      */
     private void saveKakaoRefreshToken(User user, String kakaoRefreshToken) {
-        Optional<Auth> optionalAuth = authRepository.findByUser(user);
+        try {
+            Optional<Auth> optionalAuth = authRepository.findByUser(user);
 
-        if (optionalAuth.isPresent()) {
-            // 기존 Auth 업데이트
-            Auth auth = optionalAuth.get();
-            auth.updateKakaoRefreshToken(kakaoRefreshToken);
-            authRepository.save(auth);
-            log.info("기존 사용자 토큰 업데이트: userId = {}", user.getId());
-        } else {
-            // 새 Auth 생성
-            Auth newAuth = Auth.builder()
-                    .user(user)
-                    .kakaoRefreshToken(kakaoRefreshToken)
-                    .build();
-            authRepository.save(newAuth);
-            log.info("새 사용자 토큰 저장: userId = {}", user.getId());
+            if (optionalAuth.isPresent()) {
+                // 기존 Auth 업데이트
+                Auth auth = optionalAuth.get();
+                auth.updateKakaoRefreshToken(kakaoRefreshToken);
+                authRepository.save(auth);
+                log.info("기존 사용자 토큰 업데이트: userId = {}", user.getId());
+            } else {
+                // 새 Auth 생성
+                Auth newAuth = Auth.builder()
+                        .user(user)
+                        .kakaoRefreshToken(kakaoRefreshToken)
+                        .build();
+                authRepository.save(newAuth);
+                log.info("새 사용자 토큰 저장: userId = {}", user.getId());
+            }
+        } catch (Exception e) {
+            log.error("카카오 토큰 저장 실패: userId = {}, error = {}", user.getId(), e.getMessage());
+            throw new AuthException(ErrorCode.TOKEN_STORAGE_FAILED);
         }
     }
 
@@ -159,16 +176,18 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     }
 
     /**
-     * 에러 응답 전송
+     * 에러 응답 전송 (ErrorCode 기반)
      */
-    private void sendErrorResponse(HttpServletResponse response, String message) throws IOException {
-        Map<String, Object> errorResponse = new HashMap<>();
-        errorResponse.put("error", "LOGIN_FAILED");
-        errorResponse.put("message", message);
+    private void sendErrorResponse(HttpServletResponse response, ErrorCode errorCode) throws IOException {
+        ApiResponseWrapper<String> errorResponse = new ApiResponseWrapper<>(
+                null,
+                errorCode.getMessage()
+        );
+        // errorCode 필드 설정 (ApiResponseWrapper에 errorCode 필드 추가 필요 시)
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        response.setStatus(errorCode.getHttpStatus().value());
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }
