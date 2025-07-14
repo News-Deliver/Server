@@ -7,6 +7,7 @@ CREATE TABLE user
     PRIMARY KEY (id)
 );
 
+
 -- 2. 뉴스
 CREATE TABLE news
 (
