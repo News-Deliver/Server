@@ -39,9 +39,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	runtimeOnly 'com.mysql:mysql-connector-j' // MySQL JDBC Driver
 
-	/* Spring AI (OpenAI) */
-	// implementation 'org.springframework.ai:spring-ai-starter-model-openai'
-
 	/* Redis 연동 */
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
@@ -73,16 +70,18 @@ dependencies {
 	/* JPA Auditing (@CreatedDate 등) */
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-	//ElasticSearch
+	/* ElasticSearch */
 	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
 	implementation 'co.elastic.clients:elasticsearch-java:8.13.0'
 
-	// dev tools
+	/* dev tools */
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
 	// Jackson Datatype for Java 8 Date/Time API (뉴스 세팅에서 사용하는 임시 추가 파일 테스트 끝난 후 삭제 할 예정)
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
+	/* Swagger UI */
+	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0"
 }
 
 dependencyManagement {
