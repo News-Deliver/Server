@@ -1,0 +1,8 @@
+# CI (Continuous Integration) 워크플로우
+#
+# 목적: 모든 코드 변경사항에 대한 자동 빌드 및 테스트 실행
+# 실행조건: Push, Pull Request 생성/수정 시
+#  추가할지 고민줄
+#
+# 주요기능:
+# - Java 17 환경에서 Spring Boot 애플리케이션 빌드
