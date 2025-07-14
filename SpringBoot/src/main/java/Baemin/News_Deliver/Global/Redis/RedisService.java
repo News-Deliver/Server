@@ -49,7 +49,7 @@ public class RedisService {
      * JWT 액세스 토큰을 이중화하여 저장합니다
      *
      * Primary Redis와 Backup Redis 모두에 액세스 토큰을 저장하여 데이터 안정성을 확보합니다.
-     * 토큰은 JwtConfig에서 설정된 만료 시간(30분)에 따라 자동으로 만료됩니다.
+     * 토큰은 JwtConfig에서 설정된 만료 시간(16분)에 따라 자동으로 만료됩니다.
      * Primary Redis 저장 실패 시에도 전체 작업이 실패하지 않도록 예외 처리를 수행합니다.
      *
      * 저장 키 형식: "access_token:{kakaoId}"
