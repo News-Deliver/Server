@@ -49,7 +49,17 @@ CREATE TABLE auth
 CREATE TABLE setting_block_keyword
 (
     id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '고유번호',
-    setting_keyword VARCHAR(255) NOT NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드',
+    block_keyword VARCHAR(255) NOT NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드',
+    setting_id      BIGINT       NOT NULL COMMENT '제외 키워드를 등록한 설정의 고유번호',
+    PRIMARY KEY (id),
+    FOREIGN KEY (setting_id) REFERENCES setting (id)
+);
+
+-- 5. 설정 제외 키워드
+CREATE TABLE setting_block_keyword
+(
+    id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '고유번호',
+    block_keyword VARCHAR(255) NOT NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드',
     setting_id      BIGINT       NOT NULL COMMENT '제외 키워드를 등록한 설정의 고유번호',
     PRIMARY KEY (id),
     FOREIGN KEY (setting_id) REFERENCES setting (id)
@@ -104,4 +114,22 @@ CREATE TABLE hot_topic
     keyword    VARCHAR(255) NOT NULL COMMENT '핫토픽 키워드',
     topic_date DATETIME     NOT NULL COMMENT '해당날짜(계산일 기준 하루 전)',
     PRIMARY KEY (id)
+);
+
+-- 11. 설정 키워드 히스토리
+CREATE TABLE setting_keyword_history (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '고유번호',
+    setting_keyword VARCHAR(255) NOT NULL COMMENT '뉴스를 받아보고 싶은 키워드',
+    history_id BIGINT NOT NULL COMMENT '히스토리의 고유 번호',
+    PRIMARY KEY (id),
+    FOREIGN KEY (history_id) REFERENCES history (id) ON DELETE CASCADE
+);
+
+-- 12. 제외 키워드 히스토리
+CREATE TABLE setting_block_keyword_history (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '고유번호',
+    block_keyword VARCHAR(255) NOT NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드',
+    history_id BIGINT NOT NULL COMMENT '히스토리의 고유 번호',
+    PRIMARY KEY (id),
+    FOREIGN KEY (history_id) REFERENCES history (id) ON DELETE CASCADE
 );
