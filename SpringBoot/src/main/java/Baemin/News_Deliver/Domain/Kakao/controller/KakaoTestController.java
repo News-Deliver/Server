@@ -70,34 +70,6 @@ public class KakaoTestController {
         }
     }
 
-    /**
-     * 여러 뉴스를 포함한 요약 메시지 전송
-     */
-    @PostMapping("/kakao/send-news-summary")
-    @ResponseBody
-    public ResponseEntity<ApiResponseWrapper<String>> sendNewsSummary(@RequestBody Map<String, Object> request) {
-        try {
-            Integer count = (Integer) request.getOrDefault("count", 3);
-            if (count <= 0 || count > 5) {
-                return ResponseEntity.badRequest()
-                        .body(new ApiResponseWrapper<>(null, "뉴스 개수는 1-5개 사이여야 합니다."));
-            }
-
-            String newsMessage = newsService.getMultipleNewsMessage(count);
-            boolean success = kakaoMessageService.sendKakaoMessage(newsMessage);
-
-            if (success) {
-                return ResponseEntity.ok(new ApiResponseWrapper<>("SUCCESS", "뉴스 요약 메시지 전송 성공"));
-            } else {
-                return ResponseEntity.internalServerError()
-                        .body(new ApiResponseWrapper<>(null, "뉴스 요약 메시지 전송 실패"));
-            }
-        } catch (Exception e) {
-            log.error("뉴스 요약 메시지 전송 중 오류 발생: ", e);
-            return ResponseEntity.internalServerError()
-                    .body(new ApiResponseWrapper<>(null, "뉴스 요약 메시지 전송 중 오류 발생: " + e.getMessage()));
-        }
-    }
 
     /**
      * 테스트용 뉴스 메시지 전송 엔드포인트
