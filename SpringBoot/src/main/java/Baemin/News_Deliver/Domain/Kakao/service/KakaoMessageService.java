@@ -2,6 +2,8 @@ package Baemin.News_Deliver.Domain.Kakao.service;
 
 import Baemin.News_Deliver.Domain.Auth.Repository.UserRepository;
 import Baemin.News_Deliver.Global.Kakao.KakaoTokenProvider;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,15 +39,8 @@ public class KakaoMessageService {
      * 현재 로그인한 카카오 유저의 Access Token을 가져옴
      */
     public String getKakaoUserAccessToken() {
-        // 현재 유저 인증 확인 코드
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) {
-            throw new RuntimeException("인증되지 않은 사용자입니다.");
-        }
-
-        // 유저의 카카오톡 아이디
-        String kakaoId = authentication.getName();
-        String accessToken = provider.getAccessToken(kakaoId);
+        //유저의 accesstoken을 가져 올 것
+        String accessToken = provider.refreshAccessToken("rDTkUyvQQ9jDku5OszEAOsdFoBwHZD1NAAAAAgoNIFoAAAGYB76pNlIZRy9oVvUS");
 
         if (accessToken == null || accessToken.isEmpty()) {
             throw new RuntimeException("Access Token을 가져올 수 없습니다.");
@@ -55,9 +50,9 @@ public class KakaoMessageService {
     }
 
     /**
-     * 카카오 API를 통해 실제 메시지 전송
+     * 메시지 전송 메서드
      */
-    public boolean sendKakaoMessage(String message) {
+    public boolean sendKakaoMessage() {
         try {
             String accessToken = getKakaoUserAccessToken();
 
@@ -66,16 +61,19 @@ public class KakaoMessageService {
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.set("Authorization", "Bearer " + accessToken);
 
-            // 메시지 템플릿 생성 (텍스트 형태)
-            String templateObject = createTextTemplate(message);
+            // 템플릿 설정
+            Map<String, String> templateArgs = createTemplateData();
 
-            // 요청 바디 설정
+            // JSON 문자열로 변환
+            ObjectMapper objectMapper = new ObjectMapper();
+            String templateArgsJson = objectMapper.writeValueAsString(templateArgs);
+
+            // 요청 파라미터 구성
             MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-            params.add("template_object", templateObject);
+            params.add("template_id", "122080");
+            params.add("template_args", templateArgsJson);
 
             HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(params, headers);
-
-            // API 호출
             ResponseEntity<String> response = restTemplate.postForEntity(KAKAO_SEND_TOME_URL, entity, String.class);
 
             log.info("카카오 메시지 전송 응답: {}", response.getBody());
@@ -87,41 +85,18 @@ public class KakaoMessageService {
         }
     }
 
-    /**
-     * 텍스트 메시지 템플릿 생성
-     */
-    private String createTextTemplate(String message) {
-        Map<String, Object> templateObject = new HashMap<>();
-        templateObject.put("object_type", "text");
-        templateObject.put("text", message);
-        templateObject.put("link", Map.of(
-                "web_url", "https://your-app-domain.com",
-                "mobile_web_url", "https://your-app-domain.com"
-        ));
-
-        // JSON 문자열로 변환
-        return convertToJsonString(templateObject);
-    }
-
-    /**
-     * Map을 JSON 문자열로 변환하는 간단한 메서드
-     * 실제 프로젝트에서는 ObjectMapper를 사용하는 것이 좋습니다.
-     */
-    private String convertToJsonString(Map<String, Object> map) {
-        try {
-            // 간단한 JSON 생성 (실제로는 ObjectMapper 사용 권장)
-            StringBuilder json = new StringBuilder();
-            json.append("{");
-            json.append("\"object_type\":\"text\",");
-            json.append("\"text\":\"").append(map.get("text")).append("\",");
-            json.append("\"link\":{");
-            json.append("\"web_url\":\"https://your-app-domain.com\",");
-            json.append("\"mobile_web_url\":\"https://your-app-domain.com\"");
-            json.append("}");
-            json.append("}");
-            return json.toString();
-        } catch (Exception e) {
-            throw new RuntimeException("JSON 변환 실패", e);
-        }
+    private static Map<String, String> createTemplateData() {
+        Map<String, String> templateArgs = new HashMap<>();
+        templateArgs.put("SUMMARY1", "타이틀입니다.1");
+        templateArgs.put("PUBLISHER1", "퍼블리셔입니다1");
+        templateArgs.put("SUMMARY2", "타이틀입니다.2");
+        templateArgs.put("PUBLISHER2", "퍼블리셔입니다2");
+        templateArgs.put("SUMMARY3", "타이틀입니다.3");
+        templateArgs.put("PUBLISHER3", "퍼블리셔입니다3");
+        templateArgs.put("SUMMARY4", "타이틀입니다.4");
+        templateArgs.put("PUBLISHER4", "퍼블리셔입니다4");
+        templateArgs.put("SUMMARY5", "타이틀입니다.5");
+        templateArgs.put("PUBLISHER5", "퍼블리셔입니다5");
+        return templateArgs;
     }
 }
