@@ -2,8 +2,10 @@ package Baemin.News_Deliver.Global.Kakao;
 
 import Baemin.News_Deliver.Domain.Auth.Entity.Auth;
 import Baemin.News_Deliver.Domain.Auth.Entity.User;
+import Baemin.News_Deliver.Domain.Auth.Exception.AuthException;
 import Baemin.News_Deliver.Domain.Auth.Repository.AuthRepository;
 import Baemin.News_Deliver.Domain.Auth.Repository.UserRepository;
+import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,13 +44,13 @@ public class KakaoTokenProvider {
         try {
             // 1. 사용자 조회
             User user = userRepository.findByKakaoId(kakaoId)
-                    .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
+                    .orElseThrow(() -> new AuthException(ErrorCode.USER_NOT_FOUND));
 
             log.debug("사용자 조회 완료: userId={}", user.getId());
 
             // 2. Auth 정보 조회
             Auth auth = authRepository.findByUser(user)
-                    .orElseThrow(() -> new RuntimeException("카카오 토큰이 유효하지 않습니다"));
+                    .orElseThrow(() -> new AuthException(ErrorCode.KAKAO_TOKEN_INVALID));
 
             log.debug("Auth 정보 조회 완료: refreshToken 존재={}", auth.getKakaoRefreshToken() != null);
 
@@ -58,9 +60,12 @@ public class KakaoTokenProvider {
             log.info("카카오 액세스 토큰 발급 성공: kakaoId={}", kakaoId);
             return accessToken;
 
+        } catch (AuthException e) {
+            log.error("카카오 액세스 토큰 발급 실패: kakaoId={}, errorCode={}", kakaoId, e.getErrorcode().getErrorCode());
+            throw e; // AuthException은 그대로 재던지기
         } catch (Exception e) {
-            log.error("카카오 액세스 토큰 발급 실패: kakaoId={}, error={}", kakaoId, e.getMessage());
-            throw new RuntimeException("카카오 토큰이 유효하지 않습니다");
+            log.error("카카오 액세스 토큰 발급 중 예상치 못한 오류: kakaoId={}, error={}", kakaoId, e.getMessage());
+            throw new AuthException(ErrorCode.KAKAO_TOKEN_INVALID);
         }
     }
 
@@ -117,18 +122,21 @@ public class KakaoTokenProvider {
                     return accessToken;
                 } else {
                     log.error("카카오 응답에 access_token이 없음: responseBody={}", responseBody);
-                    throw new RuntimeException("카카오 토큰이 유효하지 않습니다");
+                    throw new AuthException(ErrorCode.KAKAO_TOKEN_REFRESH_FAILED);
                 }
             } else {
                 log.error("카카오 토큰 API 호출 실패: statusCode={}, responseBody={}",
                         response.getStatusCode(), response.getBody());
-                throw new RuntimeException("카카오 토큰이 유효하지 않습니다");
+                throw new AuthException(ErrorCode.KAKAO_TOKEN_REFRESH_FAILED);
             }
 
+        } catch (AuthException e) {
+            log.error("카카오 토큰 갱신 실패: errorCode={}", e.getErrorcode().getErrorCode());
+            throw e; // AuthException은 그대로 재던지기
         } catch (Exception e) {
-            log.error("카카오 토큰 갱신 중 오류 발생: error={}, errorType={}",
+            log.error("카카오 토큰 갱신 중 예상치 못한 오류 발생: error={}, errorType={}",
                     e.getMessage(), e.getClass().getSimpleName());
-            throw new RuntimeException("카카오 토큰이 유효하지 않습니다");
+            throw new AuthException(ErrorCode.KAKAO_TOKEN_REFRESH_FAILED);
         }
     }
 
