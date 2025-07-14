@@ -1,6 +1,8 @@
 package Baemin.News_Deliver.Domain.Auth.Controller;
 
 import Baemin.News_Deliver.Domain.Auth.Service.AuthService;
+import Baemin.News_Deliver.Domain.Auth.dto.TokenResponse;
+import Baemin.News_Deliver.Domain.Auth.dto.UserResponse;
 import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +24,7 @@ public class AuthController {
      * 토큰 갱신 API
      */
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponseWrapper<AuthService.TokenResponse>> refreshToken(
+    public ResponseEntity<ApiResponseWrapper<TokenResponse>> refreshToken(
             @RequestBody Map<String, String> request) {
 
         String refreshToken = request.get("refreshToken");
@@ -32,7 +34,7 @@ public class AuthController {
                     .body(new ApiResponseWrapper<>(null, "Refresh token이 필요합니다"));
         }
 
-        AuthService.TokenResponse tokenResponse = authService.refreshToken(refreshToken);
+        TokenResponse tokenResponse = authService.refreshToken(refreshToken);
 
         return ResponseEntity.ok(
                 new ApiResponseWrapper<>(tokenResponse, "토큰 갱신 성공")
@@ -62,7 +64,7 @@ public class AuthController {
      * 현재 사용자 정보 조회 API
      */
     @GetMapping("/me")
-    public ResponseEntity<ApiResponseWrapper<AuthService.UserResponse>> getCurrentUser(
+    public ResponseEntity<ApiResponseWrapper<UserResponse>> getCurrentUser(
             Authentication authentication) {
 
         if (authentication == null) {
@@ -71,7 +73,7 @@ public class AuthController {
         }
 
         String kakaoId = authentication.getName();
-        AuthService.UserResponse userResponse = authService.getCurrentUser(kakaoId);
+        UserResponse userResponse = authService.getCurrentUser(kakaoId);
 
         return ResponseEntity.ok(
                 new ApiResponseWrapper<>(userResponse, "사용자 정보 조회 성공")
