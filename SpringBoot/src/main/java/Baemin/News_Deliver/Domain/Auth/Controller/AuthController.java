@@ -125,6 +125,7 @@ public class AuthController {
             );
         }
 
+
         return ResponseEntity.ok(
                 new ApiResponseWrapper<>(
                         Map.of(

@@ -7,7 +7,6 @@ CREATE TABLE user
     PRIMARY KEY (id)
 );
 
-
 -- 2. 뉴스
 CREATE TABLE news
 (
@@ -54,6 +53,7 @@ CREATE TABLE setting_block_keyword
     PRIMARY KEY (id),
     FOREIGN KEY (setting_id) REFERENCES setting (id)
 );
+
 
 -- 6. 설정 키워드
 CREATE TABLE setting_keyword
