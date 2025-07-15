@@ -65,7 +65,7 @@ jobs:
           REDIS_SESSION1_PORT: 6380
           REDIS_SESSION2_HOST: localhost
           REDIS_SESSION2_PORT: 6381
-          JWT_SECRET_KEY: test-secret-key
+          JWT_SECRET_KEY: test-secret-key-that-is-long-enough-for-jwt-hmac-sha256-algorithm-minimum-32-bytes
           ELASTICSEARCH_SERVER: localhost
           ELASTICSEARCH_PORT: 9200
           OPENAI_API_KEY: test-key
