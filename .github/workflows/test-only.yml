@@ -5,7 +5,7 @@ on:
     branches: [ main, dev ]
     types: [opened, synchronize, reopened]
   push:
-    branches: [ main, dev ]  # main, dev 브랜치도 테스트만
+    branches: [ main, dev ]
 
 jobs:
   test:
