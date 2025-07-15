@@ -2,10 +2,10 @@ name: 테스트만 수행 (배포 없음)
 
 on:
   pull_request:
-    branches: [ main, dev ]
+    branches: [ main, develop ]
     types: [opened, synchronize, reopened]
   push:
-    branches: [ dev ]
+    branches: [ develop ]  # develop 브랜치도 테스트만
 
 jobs:
   test:
@@ -134,6 +134,8 @@ jobs:
 
       - name: 애플리케이션 빌드 및 테스트
         working-directory: ./SpringBoot
+        env:
+          SPRING_PROFILES_ACTIVE: test
         run: ./gradlew build --no-daemon
 
       - name: 테스트 결과 업로드
