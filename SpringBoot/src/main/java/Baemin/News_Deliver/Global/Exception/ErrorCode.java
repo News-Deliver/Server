@@ -40,6 +40,10 @@ public enum ErrorCode {
     OAUTH2_PROVIDER_NOT_SUPPORTED("AUTH_ERROR_634", "지원하지 않는 OAuth2 제공자입니다", HttpStatus.BAD_REQUEST),
     OAUTH2_PROCESS_FAILED("AUTH_ERROR_635", "OAuth2 처리 중 오류가 발생했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
 
+
+
+    // Setting 관련
+    SETTING_NOT_FOUND("SETTING_ERROR_901", "설정을 찾을 수 없습니다", HttpStatus.NOT_FOUND);
     /* HotTopic 예외 : 7xx */
     /* Kakao 예외 : 8xx */
     /* Mypage 예외 : 9xx */

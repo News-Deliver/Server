@@ -55,16 +55,6 @@ CREATE TABLE setting_block_keyword
     FOREIGN KEY (setting_id) REFERENCES setting (id)
 );
 
--- 5. 설정 제외 키워드
-CREATE TABLE setting_block_keyword
-(
-    id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '고유번호',
-    block_keyword VARCHAR(255) NOT NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드',
-    setting_id      BIGINT       NOT NULL COMMENT '제외 키워드를 등록한 설정의 고유번호',
-    PRIMARY KEY (id),
-    FOREIGN KEY (setting_id) REFERENCES setting (id)
-);
-
 -- 6. 설정 키워드
 CREATE TABLE setting_keyword
 (
@@ -82,6 +72,8 @@ CREATE TABLE history
     published_at DATETIME NOT NULL COMMENT '기사가 발송된 날짜',
     setting_id   BIGINT   NOT NULL COMMENT '기사가 발송된 설정의 고유번호',
     news_id      BIGINT   NOT NULL COMMENT '기사가 발송된 기사의 고유번호',
+    setting_keyword VARCHAR(255) NOT NULL COMMENT '뉴스를 받아보고 싶은 키워드 히스토리',
+    block_keyword VARCHAR(255) NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드히스토리',
     PRIMARY KEY (id),
     FOREIGN KEY (setting_id) REFERENCES setting (id),
     FOREIGN KEY (news_id) REFERENCES news (id)
@@ -100,10 +92,10 @@ CREATE TABLE feedback
 -- 9. 발송 요일
 CREATE TABLE days
 (
-    id            BIGINT NOT NULL COMMENT '고유번호',
-    delivery_days BIGINT NOT NULL COMMENT '배송받고 싶은 요일',
-    PRIMARY KEY (id),
-    FOREIGN KEY (id) REFERENCES setting (id)
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    delivery_day INT NOT NULL, -- 1(일요일) ~ 7(토요일)
+    setting_id BIGINT NOT NULL,
+    FOREIGN KEY (setting_id) REFERENCES setting(id)
 );
 
 -- 10. 핫토픽
@@ -116,20 +108,6 @@ CREATE TABLE hot_topic
     PRIMARY KEY (id)
 );
 
--- 11. 설정 키워드 히스토리
-CREATE TABLE setting_keyword_history (
-    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '고유번호',
-    setting_keyword VARCHAR(255) NOT NULL COMMENT '뉴스를 받아보고 싶은 키워드',
-    history_id BIGINT NOT NULL COMMENT '히스토리의 고유 번호',
-    PRIMARY KEY (id),
-    FOREIGN KEY (history_id) REFERENCES history (id) ON DELETE CASCADE
-);
-
--- 12. 제외 키워드 히스토리
-CREATE TABLE setting_block_keyword_history (
-    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '고유번호',
-    block_keyword VARCHAR(255) NOT NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드',
-    history_id BIGINT NOT NULL COMMENT '히스토리의 고유 번호',
-    PRIMARY KEY (id),
-    FOREIGN KEY (history_id) REFERENCES history (id) ON DELETE CASCADE
-);
+CREATE INDEX idx_news_title ON news(title); -- news 테이블 DELETE 시 title 검색 시
+CREATE INDEX idx_news_published_at ON news(published_at);
+CREATE INDEX idx_news_publisher ON news(publisher);
