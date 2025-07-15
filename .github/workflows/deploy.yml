@@ -1,0 +1,109 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [ main, 'feat/**' ]  # feat 브랜치도 포함 (테스트용)
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
+            echo "🚀 Starting deployment at $(date)"
+            echo "📍 Branch: ${{ github.ref_name }}"
+          
+            cd /opt/news-deliver
+          
+            # 현재 브랜치 확인
+            echo "📋 Current branch: $(git branch --show-current)"
+          
+            # 해당 브랜치로 체크아웃 및 풀
+            echo "📥 Pulling latest code from ${{ github.ref_name }}..."
+            git fetch origin
+            git checkout ${{ github.ref_name }} || git checkout -b ${{ github.ref_name }} origin/${{ github.ref_name }}
+            git pull origin ${{ github.ref_name }}
+          
+            # 환경 변수 파일 확인
+            if [ ! -f ".env" ]; then
+              echo "❌ .env file not found!"
+              exit 1
+            fi
+          
+            # 기존 컨테이너 중지
+            echo "🛑 Stopping existing containers..."
+            docker-compose down || true
+          
+            # Docker 이미지 정리
+            echo "🧹 Cleaning up old images..."
+            docker system prune -f
+          
+            # 새로운 컨테이너 시작
+            echo "🔄 Starting new containers..."
+            docker-compose up -d --build
+          
+            # 서비스 시작 대기
+            echo "⏳ Waiting for services to start..."
+            sleep 60
+          
+            # 서비스 상태 확인
+            echo "📊 Checking service status..."
+            docker-compose ps
+          
+            # Spring Boot 헬스체크
+            echo "🔍 Health checking Spring Boot..."
+            for i in {1..12}; do
+              if curl -f http://localhost:8080/ >/dev/null 2>&1; then
+                echo "✅ Spring Boot is healthy!"
+                break
+              fi
+              echo "⏳ Attempt $i/12: Spring Boot not ready yet..."
+              sleep 10
+            done
+          
+            echo "🎉 Deployment completed at $(date)"
+          '
+
+      - name: External Health Check
+        run: |
+          echo "🔍 External health check..."
+          sleep 30
+          
+          # 외부에서 접근 가능한지 확인
+          for i in {1..5}; do
+            if curl -f http://${{ secrets.EC2_HOST }}/ >/dev/null 2>&1; then
+              echo "✅ External health check passed!"
+              echo "🔗 Application URL: http://${{ secrets.EC2_HOST }}/"
+              echo "📋 API Docs: http://${{ secrets.EC2_HOST }}/swagger.html"
+              echo "🌿 Deployed from branch: ${{ github.ref_name }}"
+              exit 0
+            fi
+            echo "⏳ Attempt $i/5: External check not ready yet..."
+            sleep 10
+          done
+          
+          echo "⚠️ External health check timeout, but deployment may still be successful"
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Server**: ${{ secrets.EC2_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment Time**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Application URL**: http://${{ secrets.EC2_HOST }}/" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Documentation**: http://${{ secrets.EC2_HOST }}/swagger.html" >> $GITHUB_STEP_SUMMARY
