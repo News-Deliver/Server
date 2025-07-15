@@ -43,5 +43,5 @@ jobs:
       - name: Upload JAR
         uses: actions/upload-artifact@v4
         with:
-          name: app-jar-${{ github.ref_name | replace('/', '-') }}
+          name: app-jar-${{ github.ref_name | replace('/', '-') }}  # 슬래시를 대시로 변경
           path: SpringBoot/build/libs/*.jar
