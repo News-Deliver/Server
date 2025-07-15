@@ -40,8 +40,12 @@ jobs:
       - name: Check build output
         run: ls -la SpringBoot/build/libs/
 
+      - name: Get branch name
+        id: branch
+        run: echo "name=$(echo ${GITHUB_REF#refs/heads/} | sed 's/\//-/g')" >> $GITHUB_OUTPUT
+
       - name: Upload JAR
         uses: actions/upload-artifact@v4
         with:
-          name: app-jar-${{ github.ref_name | replace('/', '-') }}  # 슬래시를 대시로 변경
+          name: app-jar-${{ steps.branch.outputs.name }}
           path: SpringBoot/build/libs/*.jar
