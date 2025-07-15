@@ -72,6 +72,8 @@ CREATE TABLE history
     published_at DATETIME NOT NULL COMMENT '기사가 발송된 날짜',
     setting_id   BIGINT   NOT NULL COMMENT '기사가 발송된 설정의 고유번호',
     news_id      BIGINT   NOT NULL COMMENT '기사가 발송된 기사의 고유번호',
+    setting_keyword VARCHAR(255) NOT NULL COMMENT '뉴스를 받아보고 싶은 키워드 히스토리',
+    block_keyword VARCHAR(255) NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드히스토리',
     PRIMARY KEY (id),
     FOREIGN KEY (setting_id) REFERENCES setting (id),
     FOREIGN KEY (news_id) REFERENCES news (id)
