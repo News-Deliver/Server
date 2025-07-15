@@ -18,7 +18,7 @@ public class BatchController {
     private final Job newsDataSaveJob;
     private final BatchService batchService;
 
-    @GetMapping("/run-batch") // ✅ GET 방식으로 변경
+        @GetMapping("/run-batch") // ✅ GET 방식으로 변경
     public ResponseEntity<String> runBatch() {
         return batchService.runBatch();
     }

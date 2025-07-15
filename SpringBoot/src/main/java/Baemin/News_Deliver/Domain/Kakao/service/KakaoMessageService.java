@@ -2,6 +2,7 @@ package Baemin.News_Deliver.Domain.Kakao.service;
 
 import Baemin.News_Deliver.Domain.Auth.Repository.UserRepository;
 import Baemin.News_Deliver.Global.Kakao.KakaoTokenProvider;
+import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -26,6 +28,7 @@ public class KakaoMessageService {
     private final KakaoTokenProvider provider;
     private final UserRepository userRepository;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final KakaoNewsService newsService;
 
     @Value("${spring.security.oauth2.client.registration.kakao.client-id}")
     private String kakaoClientId;
@@ -40,7 +43,7 @@ public class KakaoMessageService {
      */
     public String getKakaoUserAccessToken() {
         //유저의 accesstoken을 가져 올 것
-        String accessToken = provider.refreshAccessToken("rDTkUyvQQ9jDku5OszEAOsdFoBwHZD1NAAAAAgoNIFoAAAGYB76pNlIZRy9oVvUS");
+        String accessToken = provider.refreshAccessToken("i-s5VQgs2SMcQIFLG0HuCQ0dvAH6I8kpAAAAAgoNDV8AAAGYC_wG2FIZRy9oVvUS");
 
         if (accessToken == null || accessToken.isEmpty()) {
             throw new RuntimeException("Access Token을 가져올 수 없습니다.");
@@ -56,13 +59,28 @@ public class KakaoMessageService {
         try {
             String accessToken = getKakaoUserAccessToken();
 
+            //임시 키워드 제공
+            String keyword = "이재명";
+            String blockKeyword = "";
+
+            //키워드별 뉴스 검색
+            List<NewsEsDocument> newsList = newsService.searchNews(keyword, blockKeyword);
+
+            log.info("🔍 검색된 뉴스 수: {}", newsList.size());
+            newsList.forEach(n -> log.info("📌 뉴스: {} - {}", n.getPublisher(), n.getSummary()));
+
+            if (newsList.size() < 1) {
+                log.warn("해당 키워드로 검색된 뉴스가 없습니다.");
+                return false;
+            }
+
             // 헤더 설정
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.set("Authorization", "Bearer " + accessToken);
 
-            // 템플릿 설정
-            Map<String, String> templateArgs = createTemplateData();
+            // 템플릿 설정(ES로 검색한 뉴스 리스트 넘겨받음)
+            Map<String, String> templateArgs = createTemplateData(newsList);
 
             // JSON 문자열로 변환
             ObjectMapper objectMapper = new ObjectMapper();
@@ -85,18 +103,17 @@ public class KakaoMessageService {
         }
     }
 
-    private static Map<String, String> createTemplateData() {
+    private static Map<String, String> createTemplateData(List<NewsEsDocument> newsList) {
+
         Map<String, String> templateArgs = new HashMap<>();
-        templateArgs.put("SUMMARY1", "타이틀입니다.1");
-        templateArgs.put("PUBLISHER1", "퍼블리셔입니다1");
-        templateArgs.put("SUMMARY2", "타이틀입니다.2");
-        templateArgs.put("PUBLISHER2", "퍼블리셔입니다2");
-        templateArgs.put("SUMMARY3", "타이틀입니다.3");
-        templateArgs.put("PUBLISHER3", "퍼블리셔입니다3");
-        templateArgs.put("SUMMARY4", "타이틀입니다.4");
-        templateArgs.put("PUBLISHER4", "퍼블리셔입니다4");
-        templateArgs.put("SUMMARY5", "타이틀입니다.5");
-        templateArgs.put("PUBLISHER5", "퍼블리셔입니다5");
+
+        //메세지 5개 고정
+        for (int i = 0; i < Math.min(5, newsList.size()); i++) {
+            NewsEsDocument news = newsList.get(i);
+            templateArgs.put("SUMMARY" + (i + 1), news.getSummary());
+            templateArgs.put("PUBLISHER" + (i + 1), news.getPublisher());
+        }
         return templateArgs;
+
     }
 }

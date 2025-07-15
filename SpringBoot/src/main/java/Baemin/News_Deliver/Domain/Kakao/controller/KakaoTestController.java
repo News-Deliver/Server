@@ -5,6 +5,7 @@ import Baemin.News_Deliver.Domain.Auth.Repository.AuthRepository;
 import Baemin.News_Deliver.Domain.Kakao.service.KakaoMessageService;
 import Baemin.News_Deliver.Domain.Kakao.service.KakaoNewsService;
 import Baemin.News_Deliver.Global.Kakao.KakaoTokenProvider;
+import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,37 +16,43 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-@Controller
+@RestController
 @RequiredArgsConstructor
 @Slf4j
+@RequestMapping("/kakao")
 public class KakaoTestController {
 
     private final KakaoMessageService kakaoMessageService;
-    private final KakaoTokenProvider provider;
-    private final KakaoNewsService newsService;
-    private final AuthRepository authRepository;
+    private final KakaoNewsService newsSearchService;
 
     /**
      * 카카오톡 나에게 보내기 메시지 전송 메서드
      */
-    @GetMapping("/kakao/send-message")
-    @ResponseBody
+    @GetMapping("/send-message")
     public ResponseEntity<ApiResponseWrapper<String>> sendMessage() {
 
         try {
             boolean success = kakaoMessageService.sendKakaoMessage();
 
             if (success) {
-                return ResponseEntity.ok(new ApiResponseWrapper<>("SUCCESS", "메시지 전송 성공"));
+                return ResponseEntity.ok(new ApiResponseWrapper<>("SUCCESS", "뉴스 메시지 전송 성공"));
             } else {
                 return ResponseEntity.internalServerError()
-                        .body(new ApiResponseWrapper<>(null, "메시지 전송 실패"));
+                        .body(new ApiResponseWrapper<>(null, "뉴스 메시지 전송 실패"));
             }
+
         } catch (Exception e) {
             log.error("메시지 전송 중 오류 발생: ", e);
             return ResponseEntity.internalServerError()
                     .body(new ApiResponseWrapper<>(null, "메시지 전송 중 오류 발생: " + e.getMessage()));
         }
+    }
+
+    @GetMapping("/search-news")
+    public ResponseEntity<List<NewsEsDocument>> searchNews(
+            @RequestParam String keyword,
+            @RequestParam(required = false, defaultValue = "") String blockKeyword) {
+        return ResponseEntity.ok(newsSearchService.searchNews(keyword, blockKeyword));
     }
 
 }
