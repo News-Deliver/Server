@@ -1,0 +1,84 @@
+name: Dev 브랜치 테스트
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: backendDB
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+      redis:
+        image: redis:7.2
+        ports:
+          - 6379:6379
+          - 6380:6379
+          - 6381:6379
+
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+        ports:
+          - 9200:9200
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17 설정
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'corretto'
+
+      - name: gradlew 권한 설정
+        run: chmod +x SpringBoot/gradlew
+
+      - name: 서비스 대기
+        run: |
+          sleep 30
+          echo "서비스 준비 완료"
+
+      - name: 테스트 실행
+        working-directory: ./SpringBoot
+        env:
+          DB_SERVER: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASS: testpass
+          REDIS_CACHE_HOST: localhost
+          REDIS_CACHE_PORT: 6379
+          REDIS_SESSION1_HOST: localhost
+          REDIS_SESSION1_PORT: 6380
+          REDIS_SESSION2_HOST: localhost
+          REDIS_SESSION2_PORT: 6381
+          JWT_SECRET_KEY: test-secret-key-that-is-long-enough-for-jwt-hmac-sha256-algorithm-minimum-32-bytes
+          ELASTICSEARCH_SERVER: localhost
+          ELASTICSEARCH_PORT: 9200
+          OPENAI_API_KEY: test-key
+          KAKAO_CLIENT_ID: test-id
+          KAKAO_CLIENT_SECRET: test-secret
+          DEEPSEARCH_API_KEY: test-key
+        run: ./gradlew build --no-daemon
+
+      - name: 결과 요약
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Dev 테스트 성공!"
+          else
+            echo "❌ Dev 테스트 실패!"
+          fi
