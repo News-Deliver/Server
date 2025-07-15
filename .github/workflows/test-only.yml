@@ -136,6 +136,28 @@ jobs:
         working-directory: ./SpringBoot
         env:
           SPRING_PROFILES_ACTIVE: test
+          # 💡 GitHub Secrets에서 가져오는 환경 변수들
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+          DEEPSEARCH_API_KEY: ${{ secrets.DEEPSEARCH_API_KEY }}
+
+          # 🔧 CI/CD 환경용 고정 값들 (로컬과 다름)
+          DB_SERVER: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASS: ci_test_password
+
+          REDIS_CACHE_HOST: localhost
+          REDIS_CACHE_PORT: 6379
+          REDIS_SESSION1_HOST: localhost
+          REDIS_SESSION1_PORT: 6380
+          REDIS_SESSION2_HOST: localhost
+          REDIS_SESSION2_PORT: 6381
+
+          ELASTICSEARCH_SERVER: localhost
+          ELASTICSEARCH_PORT: 9200
         run: ./gradlew build --no-daemon
 
       - name: 테스트 결과 업로드
