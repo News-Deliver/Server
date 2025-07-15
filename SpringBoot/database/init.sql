@@ -49,7 +49,7 @@ CREATE TABLE auth
 CREATE TABLE setting_block_keyword
 (
     id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '고유번호',
-    setting_keyword VARCHAR(255) NOT NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드',
+    block_keyword VARCHAR(255) NOT NULL COMMENT '설정에 대해서만 적용되는 제외하는 키워드',
     setting_id      BIGINT       NOT NULL COMMENT '제외 키워드를 등록한 설정의 고유번호',
     PRIMARY KEY (id),
     FOREIGN KEY (setting_id) REFERENCES setting (id)
@@ -90,10 +90,10 @@ CREATE TABLE feedback
 -- 9. 발송 요일
 CREATE TABLE days
 (
-    id            BIGINT NOT NULL COMMENT '고유번호',
-    delivery_days BIGINT NOT NULL COMMENT '배송받고 싶은 요일',
-    PRIMARY KEY (id),
-    FOREIGN KEY (id) REFERENCES setting (id)
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    delivery_day INT NOT NULL, -- 1(일요일) ~ 7(토요일)
+    setting_id BIGINT NOT NULL,
+    FOREIGN KEY (setting_id) REFERENCES setting(id)
 );
 
 -- 10. 핫토픽
@@ -105,3 +105,7 @@ CREATE TABLE hot_topic
     topic_date DATETIME     NOT NULL COMMENT '해당날짜(계산일 기준 하루 전)',
     PRIMARY KEY (id)
 );
+
+CREATE INDEX idx_news_title ON news(title); -- news 테이블 DELETE 시 title 검색 시
+CREATE INDEX idx_news_published_at ON news(published_at);
+CREATE INDEX idx_news_publisher ON news(publisher);

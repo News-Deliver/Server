@@ -21,6 +21,7 @@ public class HotTopicController {
         hotTopicService.getAndSaveHotTopic();
     }
 
+    //Redis 캐시에 올릴 예정
     @GetMapping("/gethottopic")
     public void getHotTopic() {
         try {
