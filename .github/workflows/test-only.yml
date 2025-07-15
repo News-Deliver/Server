@@ -2,10 +2,10 @@ name: 테스트만 수행 (배포 없음)
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, dev ]
     types: [opened, synchronize, reopened]
   push:
-    branches: [ develop ]  # develop 브랜치도 테스트만
+    branches: [ dev ]
 
 jobs:
   test:
