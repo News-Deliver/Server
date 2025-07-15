@@ -1,29 +1,26 @@
 package Baemin.News_Deliver.Domain.Kakao.controller;
 
-import Baemin.News_Deliver.Domain.Auth.Entity.Auth;
-import Baemin.News_Deliver.Domain.Auth.Repository.AuthRepository;
 import Baemin.News_Deliver.Domain.Kakao.service.KakaoMessageService;
 import Baemin.News_Deliver.Domain.Kakao.service.KakaoNewsService;
-import Baemin.News_Deliver.Global.Kakao.KakaoTokenProvider;
+import Baemin.News_Deliver.Domain.Kakao.service.KakaoSchedulerService;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
 @Slf4j
 @RequestMapping("/kakao")
-public class KakaoTestController {
+public class KakaoController {
 
     private final KakaoMessageService kakaoMessageService;
     private final KakaoNewsService newsSearchService;
+    private final KakaoSchedulerService kakaoSchedulerService;
 
     /**
      * 카카오톡 나에게 보내기 메시지 전송 메서드
@@ -57,4 +54,8 @@ public class KakaoTestController {
         return ResponseEntity.ok(newsSearchService.searchNews(keyword, blockKeyword));
     }
 
+    @GetMapping("/getcron")
+    public ResponseEntity getcron() {
+        return ResponseEntity.ok(kakaoSchedulerService.getCron());
+    }
 }
