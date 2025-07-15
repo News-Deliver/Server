@@ -3,7 +3,7 @@ package Baemin.News_Deliver.Global.Exception;
 import Baemin.News_Deliver.Domain.Auth.Exception.AuthException;
 import Baemin.News_Deliver.Domain.HotTopic.Exception.HotTopicException;
 import Baemin.News_Deliver.Domain.Kakao.Exception.KakaoException;
-import Baemin.News_Deliver.Domain.Mypage.Exception.MypageException;
+import Baemin.News_Deliver.Domain.Mypage.Exception.SettingException;
 import Baemin.News_Deliver.Domain.SubServices.Exception.SubServicesException;
 import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
 import org.springframework.http.ResponseEntity;
@@ -35,8 +35,8 @@ public class GlobalExceptionHandler {
     }
 
     // Mypage 도메인 예외
-    @ExceptionHandler(MypageException.class)
-    public ResponseEntity<ApiResponseWrapper<String>> mypageExceptions(MypageException ex) {
+    @ExceptionHandler(SettingException.class)
+    public ResponseEntity<ApiResponseWrapper<String>> mypageExceptions(SettingException ex) {
         ApiResponseWrapper<String> response = new ApiResponseWrapper<>(ex.getErrorcode().getErrorCode(),ex.getErrorcode().getMessage());
         return new ResponseEntity<>(response, ex.getErrorcode().getHttpStatus());
     }
