@@ -2,7 +2,7 @@ name: Quick Test
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'feat/**' ]  # feat/git 브랜치 포함
   pull_request:
     branches: [ main, develop ]
 
@@ -43,5 +43,5 @@ jobs:
       - name: Upload JAR
         uses: actions/upload-artifact@v4
         with:
-          name: app-jar
+          name: app-jar-${{ github.ref_name }}  # 브랜치별 구분
           path: SpringBoot/build/libs/*.jar
