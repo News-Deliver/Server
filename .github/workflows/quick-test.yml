@@ -1,4 +1,4 @@
-name: CI - Complete Build and Test
+name: CI - 완전한 빌드 및 테스트
 
 on:
   push:
@@ -70,16 +70,16 @@ jobs:
           --health-retries=10
 
     steps:
-      - name: Checkout code
+      - name: 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: JDK 17 설정
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'corretto'
 
-      - name: Cache Gradle packages
+      - name: Gradle 패키지 캐시
         uses: actions/cache@v4
         with:
           path: |
@@ -89,53 +89,53 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Grant execute permission for gradlew
+      - name: gradlew 실행 권한 부여
         run: chmod +x SpringBoot/gradlew
 
-      - name: Wait for services to be ready
+      - name: 서비스 준비 완료 대기
         run: |
-          echo "⏳ Waiting for services to start..."
+          echo "⏳ 서비스 시작 대기 중..."
           
           # MySQL 대기
-          echo "Waiting for MySQL..."
+          echo "MySQL 대기 중..."
           for i in {1..30}; do
             if mysqladmin ping -h"127.0.0.1" -P"3306" -u"root" -p"ci_test_password" --silent; then
-              echo "✅ MySQL is ready"
+              echo "✅ MySQL 준비 완료"
               break
             fi
-            echo "MySQL not ready, waiting... ($i/30)"
+            echo "MySQL이 준비되지 않음, 대기 중... ($i/30)"
             sleep 2
           done
           
           # Redis 대기  
-          echo "Waiting for Redis..."
+          echo "Redis 대기 중..."
           for i in {1..30}; do
             if redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG; then
-              echo "✅ Redis is ready"
+              echo "✅ Redis 준비 완료"
               break
             fi
-            echo "Redis not ready, waiting... ($i/30)"
+            echo "Redis가 준비되지 않음, 대기 중... ($i/30)"
             sleep 1
           done
           
           # Elasticsearch 대기
-          echo "Waiting for Elasticsearch..."
+          echo "Elasticsearch 대기 중..."
           for i in {1..60}; do
             if curl -f http://localhost:9200/_cluster/health >/dev/null 2>&1; then
-              echo "✅ Elasticsearch is ready"
+              echo "✅ Elasticsearch 준비 완료"
               break
             fi
-            echo "Elasticsearch not ready, waiting... ($i/60)"
+            echo "Elasticsearch가 준비되지 않음, 대기 중... ($i/60)"
             sleep 2
           done
           
-          echo "🎉 All services are ready!"
+          echo "🎉 모든 서비스 준비 완료!"
 
-      - name: Build application (skip tests)
+      - name: 애플리케이션 빌드 (테스트 제외)
         working-directory: ./SpringBoot
         run: ./gradlew build -x test --no-daemon
 
-      - name: Upload test results
+      - name: 테스트 결과 업로드
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -144,18 +144,18 @@ jobs:
             SpringBoot/build/reports/
           retention-days: 30
 
-      - name: Upload JAR
+      - name: JAR 파일 업로드
         uses: actions/upload-artifact@v4
         with:
           name: application-jar
           path: SpringBoot/build/libs/*.jar
           retention-days: 30
 
-      - name: Build Summary
+      - name: 빌드 요약
         if: always()
         run: |
-          echo "## 🏗️ Build Results" >> $GITHUB_STEP_SUMMARY
-          echo "- Build Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Java Version: 17" >> $GITHUB_STEP_SUMMARY
-          echo "- Services: MySQL, Redis (x3), Elasticsearch" >> $GITHUB_STEP_SUMMARY
-          echo "- Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏗️ 빌드 결과" >> $GITHUB_STEP_SUMMARY
+          echo "- 빌드 상태: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Java 버전: 17" >> $GITHUB_STEP_SUMMARY
+          echo "- 서비스: MySQL, Redis (x3), Elasticsearch" >> $GITHUB_STEP_SUMMARY
+          echo "- 브랜치: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
