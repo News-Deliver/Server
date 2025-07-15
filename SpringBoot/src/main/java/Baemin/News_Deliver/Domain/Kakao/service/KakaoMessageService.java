@@ -2,10 +2,16 @@ package Baemin.News_Deliver.Domain.Kakao.service;
 
 import Baemin.News_Deliver.Domain.Auth.Entity.User;
 import Baemin.News_Deliver.Domain.Auth.Repository.UserRepository;
+import Baemin.News_Deliver.Domain.Kakao.entity.History;
+import Baemin.News_Deliver.Domain.Kakao.repository.HistoryRepository;
 import Baemin.News_Deliver.Domain.Mypage.DTO.SettingDTO;
+import Baemin.News_Deliver.Domain.Mypage.Entity.Setting;
+import Baemin.News_Deliver.Domain.Mypage.Repository.SettingRepository;
 import Baemin.News_Deliver.Domain.Mypage.service.SettingService;
 import Baemin.News_Deliver.Global.Kakao.KakaoTokenProvider;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
+import Baemin.News_Deliver.Global.News.JPAINSERT.entity.News;
+import Baemin.News_Deliver.Global.News.JPAINSERT.repository.NewsRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +40,9 @@ public class KakaoMessageService {
     private final KakaoNewsService newsService;
     private final SettingService settingService;
     private final UserRepository userRepository;
+    private final NewsRepository newsRepository;
+    private final SettingRepository settingRepository;
+    private final HistoryRepository historyRepository;
 
     private static final String KAKAO_SEND_TOME_URL = "https://kapi.kakao.com/v2/api/talk/memo/send";
 
@@ -98,6 +107,7 @@ public class KakaoMessageService {
 
     /**
      * 사용자의 키워드를 바탕으로 뉴스를 검색하여 리스트로 반환하는 메서드입니다.
+     *
      * @return NewsEsDocument의 리스트
      */
     private List<NewsEsDocument> getNewsEsDocumentList() {
@@ -132,15 +142,14 @@ public class KakaoMessageService {
         log.info("검색된 뉴스 수: {}", newsList.size());
         newsList.forEach(n -> log.info("뉴스: {} - {}", n.getPublisher(), n.getSummary()));
 
-        if (newsList.size() < 1) {
-            log.warn("해당 키워드로 검색된 뉴스가 없습니다.");
-            return null;
-        }
+        // 검색된 뉴스를 히스토리로 보내는 코드
+        if (saveHistory(newsList, settings)) return null;
         return newsList;
     }
 
     private static Map<String, String> createTemplateData(List<NewsEsDocument> newsList) {
 
+        log.info("뉴스 전체 리스트 확인용:" + newsList);
         Map<String, String> templateArgs = new HashMap<>();
 
         //메세지 5개 고정
@@ -151,6 +160,46 @@ public class KakaoMessageService {
         }
         return templateArgs;
 
+    }
+
+    private boolean saveHistory(List<NewsEsDocument> newsList, List<SettingDTO> settings) {
+        if (newsList == null || newsList.isEmpty()) {
+            log.warn("해당 키워드로 검색된 뉴스가 없습니다.");
+            return false;
+        }
+
+        boolean saved = false;
+
+        for (NewsEsDocument newsDoc : newsList) {
+            News newsitem = newsRepository.findById(Long.parseLong(newsDoc.getId()))
+                    .orElseThrow(() -> new RuntimeException("뉴스가 존재하지 않습니다: " + newsDoc.getId()));
+
+            for (SettingDTO settingDTO : settings) {
+                Setting setting = settingRepository.findById(settingDTO.getId())
+                        .orElseThrow(() -> new RuntimeException("설정이 존재하지 않습니다: " + settingDTO.getId()));
+
+                // 중복 저장 방지용 코드
+                boolean exists = historyRepository.existsBySettingAndNews(setting, newsitem);
+                if (exists) {
+                    log.info("이미 저장된 뉴스입니다. (settingId={}, newsId={})", setting.getId(), newsitem.getId());
+                    continue;
+                }
+
+                History history = History.builder()
+                        .publishedAt(newsDoc.getPublished_at())
+                        .setting(setting)
+                        .news(newsitem)
+                        .settingKeyword(String.join(",", settingDTO.getSettingKeywords()))
+                        .blockKeyword(settingDTO.getBlockKeywords() != null ?
+                                String.join(",", settingDTO.getBlockKeywords()) : null)
+                        .build();
+
+                historyRepository.save(history);
+                saved = true;
+            }
+        }
+
+        return saved;
     }
 
 }
