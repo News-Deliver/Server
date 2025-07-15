@@ -136,14 +136,14 @@ jobs:
         working-directory: ./SpringBoot
         env:
           SPRING_PROFILES_ACTIVE: test
-          # 💡 GitHub Secrets에서 가져오는 환경 변수들
+          # 🔐 GitHub Secrets에서 가져오는 실제 값들
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
           KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
           DEEPSEARCH_API_KEY: ${{ secrets.DEEPSEARCH_API_KEY }}
 
-          # 🔧 CI/CD 환경용 고정 값들 (로컬과 다름)
+          # 🔧 CI/CD 테스트 환경용 고정 값들
           DB_SERVER: localhost
           DB_PORT: 3306
           DB_USER: root
