@@ -1,9 +1,18 @@
 package Baemin.News_Deliver.Domain.Kakao.service;
 
+import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
@@ -13,110 +22,83 @@ import java.util.Random;
 @Slf4j
 public class KakaoNewsService {
 
-    // 임시 뉴스 데이터 (추후 엘라스틱서치로 대체)
-    private static final List<NewsData> SAMPLE_NEWS = List.of(
-            new NewsData("연합뉴스", "정부, 2025년 경제성장률 목표 2.6%로 설정... 내수 회복에 집중"),
-            new NewsData("조선일보", "삼성전자, 3분기 영업이익 전년 대비 277% 증가... 반도체 회복세"),
-            new NewsData("중앙일보", "서울 아파트 평균 매매가 12억 돌파... 전월 대비 0.8% 상승"),
-            new NewsData("한국경제", "카카오페이, 해외 간편결제 서비스 확대... 동남아 3개국 진출"),
-            new NewsData("매일경제", "현대차, 전기차 전용 플랫폼 기반 신모델 3종 연내 출시 예정")
-    );
+    private final ElasticsearchClient client;
 
-    /**
-     * 엘라스틱서치에서 랜덤 뉴스 1개 조회 (임시 구현)
-     */
-    public String getRandomNewsMessage() {
+    public List<NewsEsDocument> searchNews(String keyword, String blockKeyword) {
+
         try {
-            // 랜덤으로 뉴스 1개 선택 (추후 엘라스틱서치 쿼리로 대체)
-            Random random = new Random();
-            NewsData selectedNews = SAMPLE_NEWS.get(random.nextInt(SAMPLE_NEWS.size()));
+            LocalDate yesterday = LocalDate.now().minusDays(1);
+            //키워드 추출
+            Query includeKeyword = Query.of(q -> q
+                    .multiMatch(m -> m
+                            .query(keyword)
+                            .fields("title", "summary", "content_url", "publisher")
+                            .type(TextQueryType.BoolPrefix)
+                    )
+            );
 
-            // 뉴스 메시지 포맷 생성
-            return formatSingleNewsMessage(selectedNews);
+            // 블랙 키워드 쿼리
+            Query excludeKeyword = Query.of(q -> q
+                    .bool(b -> b
+                            .should(s -> s
+                                    .multiMatch(m -> m
+                                            .query(blockKeyword)
+                                            .fields("title", "summary", "content_url", "publisher")
+                                            .type(TextQueryType.BoolPrefix)
+                                    )
+                            )
+                    )
+            );
 
-        } catch (Exception e) {
-            log.error("뉴스 데이터 조회 중 오류 발생: ", e);
-            return "📰 배민 뉴스 딜리버리\n\n뉴스 데이터를 불러오는 중 오류가 발생했습니다.\n다시 시도해 주세요.";
+            Query dateFilter = Query.of(q -> q
+                    .range(r -> r
+                            .field("published_at")
+                            .gte(JsonData.of(yesterday.toString()))
+                            .lte(JsonData.of(yesterday.toString()))
+                            .format("yyyy-MM-dd")
+                    )
+            );
+
+
+            // 전체 쿼리 (키워드와 블랙 키워드를 포함한 전체 쿼리)
+            Query finalQuery = Query.of(q -> q
+                    .bool(b -> b
+                            .must(includeKeyword)
+                            .must(dateFilter)
+                            .mustNot(excludeKeyword)
+                    )
+            );
+
+
+
+            // 검색 엔진
+            SearchRequest request = SearchRequest.of(s -> s
+                    .index("news-index-nori")
+                    .query(finalQuery)
+                    .size(5)
+                    .sort(sort -> sort
+                            .score(sc -> sc.order(co.elastic.clients.elasticsearch._types.SortOrder.Desc))
+                    )
+            );
+
+            SearchResponse<NewsEsDocument> response = client.search(request, NewsEsDocument.class);
+
+            // 스코어 확인 코드
+            response.hits().hits().forEach(hit ->
+                    log.info("✅ {} | score: {}", hit.source().getTitle(), hit.score())
+            );
+
+            // 반환
+            return response.hits().hits().stream()
+                    .map(hit -> {
+                        NewsEsDocument doc = hit.source();
+                        return doc;
+                    })
+                    .toList();
+
+        } catch (IOException e) {
+            log.error("키워드 기반 뉴스 검색 실패: {}", e.getMessage(), e);
+            return List.of();
         }
-    }
-
-    /**
-     * 엘라스틱서치에서 여러 뉴스 조회 (임시 구현)
-     */
-    public String getMultipleNewsMessage(int count) {
-        try {
-            // 요청한 개수만큼 뉴스 선택 (중복 방지)
-            List<NewsData> selectedNews = selectRandomNews(count);
-
-            // 뉴스 요약 메시지 생성
-            return formatMultipleNewsMessage(selectedNews);
-
-        } catch (Exception e) {
-            log.error("다중 뉴스 데이터 조회 중 오류 발생: ", e);
-            return "📰 배민 뉴스 딜리버리\n\n뉴스 데이터를 불러오는 중 오류가 발생했습니다.\n다시 시도해 주세요.";
-        }
-    }
-
-    /**
-     * 특정 개수만큼 랜덤 뉴스 선택 (중복 방지)
-     */
-    private List<NewsData> selectRandomNews(int count) {
-        List<NewsData> selectedNews = new ArrayList<>();
-        List<NewsData> availableNews = new ArrayList<>(SAMPLE_NEWS);
-        Random random = new Random();
-
-        for (int i = 0; i < Math.min(count, availableNews.size()); i++) {
-            int index = random.nextInt(availableNews.size());
-            selectedNews.add(availableNews.remove(index));
-        }
-
-        return selectedNews;
-    }
-
-    /**
-     * 단일 뉴스 메시지 포맷 생성
-     */
-    private String formatSingleNewsMessage(NewsData news) {
-        StringBuilder message = new StringBuilder();
-        message.append("📰 배민 뉴스 딜리버리\n\n");
-        message.append("🏢 발행처: ").append(news.getPublisher()).append("\n");
-        message.append("📝 요약: ").append(news.getSummary()).append("\n\n");
-        message.append("자세한 내용은 배민 뉴스 딜리버리 앱에서 확인하세요!");
-
-        return message.toString();
-    }
-
-    /**
-     * 다중 뉴스 메시지 포맷 생성
-     */
-    private String formatMultipleNewsMessage(List<NewsData> newsList) {
-        StringBuilder message = new StringBuilder();
-        message.append("📰 배민 뉴스 딜리버리 - 오늘의 주요 뉴스\n\n");
-
-        // 뉴스 목록 생성
-        for (int i = 0; i < newsList.size(); i++) {
-            NewsData news = newsList.get(i);
-            message.append(String.format("%d. [%s] %s\n\n",
-                    i + 1, news.getPublisher(), news.getSummary()));
-        }
-
-        message.append("자세한 내용은 배민 뉴스 딜리버리 앱에서 확인하세요!");
-        return message.toString();
-    }
-
-    /**
-     * 뉴스 데이터 클래스
-     */
-    public static class NewsData {
-        private final String publisher;
-        private final String summary;
-
-        public NewsData(String publisher, String summary) {
-            this.publisher = publisher;
-            this.summary = summary;
-        }
-
-        public String getPublisher() { return publisher; }
-        public String getSummary() { return summary; }
     }
 }
