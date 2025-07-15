@@ -1,7 +1,7 @@
 package Baemin.News_Deliver.Domain.Kakao.entity;
 
 import Baemin.News_Deliver.Domain.Mypage.Entity.Setting;
-import Baemin.News_Deliver.Global.News.JPAINSERT.entity.News;
+import Baemin.News_Deliver.Global.News.Batch.entity.News;
 import jakarta.persistence.*;
 import lombok.Getter;
 

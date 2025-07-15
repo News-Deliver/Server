@@ -13,6 +13,9 @@ public class EsCallController {
 
     private final NewsEsService newsEsService;
 
+    //스케줄러로 구현할 예정
+    //ADMIN(관리자)기능이 추가된다면 유지할 여지가 있음
+    //FIXME
     @GetMapping("/bulk")
     public void bulk() {
         newsEsService.esBulkService();

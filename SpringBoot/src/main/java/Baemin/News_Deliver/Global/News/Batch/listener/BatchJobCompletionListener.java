@@ -8,6 +8,24 @@ import org.springframework.batch.core.JobExecutionListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+/**
+ * ✅ 뉴스 배치 작업 완료 후 실행되는 리스너
+ *
+ * <p>해당 리스너는 Spring Batch Job이 성공적으로 완료되었을 때 실행됩니다.
+ * 이전 날짜(어제 기준) 뉴스 중에서 제목과 언론사가 동일한 중복 뉴스가 있는 경우,
+ * {@code ROW_NUMBER()}를 활용하여 가장 오래된 뉴스만 남기고 나머지를 삭제합니다.</p>
+ *
+ * <p>삭제 대상은 아래 조건을 만족합니다:</p>
+ * <ul>
+ *     <li>published_at이 어제 날짜</li>
+ *     <li>title, publisher가 동일한 뉴스가 2개 이상 존재할 경우</li>
+ *     <li>그 중 가장 오래된 1개만 남기고 나머지 삭제</li>
+ * </ul>
+ *
+ * 로그에 삭제된 뉴스 개수를 출력합니다.
+ *
+ * @author 김원중
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

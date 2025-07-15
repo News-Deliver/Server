@@ -1,6 +1,6 @@
 package Baemin.News_Deliver.Global.NewsMonitoring.Manager;
 
-import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsItemDTO;
+import Baemin.News_Deliver.Global.News.Batch.dto.NewsItemDTO;
 import Baemin.News_Deliver.Global.NewsMonitoring.DTO.NewsSimpleResponseDTO;
 import Baemin.News_Deliver.Global.NewsMonitoring.Helper.NewsMonitoringHelper;
 import lombok.RequiredArgsConstructor;
