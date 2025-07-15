@@ -1,14 +1,73 @@
-name: Quick Test
+name: CI - Complete Build and Test
 
 on:
   push:
-    branches: [ main, develop, 'feat/**' ]  # feat/git 브랜치 포함
+    branches: [ main, develop, 'feat/**' ]
   pull_request:
     branches: [ main, develop ]
 
 jobs:
-  quick-build:
+  test:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_test_password
+          MYSQL_DATABASE: backendDB
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+      redis-cache:
+        image: redis:7.2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis-session1:
+        image: redis:7.2
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis-session2:
+        image: redis:7.2
+        ports:
+          - 6381:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+          xpack.security.transport.ssl.enabled: false
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd="curl -f http://localhost:9200/_cluster/health || exit 1"
+          --health-interval=30s
+          --health-timeout=10s
+          --health-retries=10
 
     steps:
       - name: Checkout code
@@ -30,22 +89,120 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Make gradlew executable
+      - name: Grant execute permission for gradlew
         run: chmod +x SpringBoot/gradlew
 
-      - name: Build only (skip tests)
+      - name: Wait for services to be ready
+        run: |
+          echo "⏳ Waiting for services to start..."
+          
+          # MySQL 대기
+          echo "Waiting for MySQL..."
+          for i in {1..30}; do
+            if mysqladmin ping -h"127.0.0.1" -P"3306" -u"root" -p"ci_test_password" --silent; then
+              echo "✅ MySQL is ready"
+              break
+            fi
+            echo "MySQL not ready, waiting... ($i/30)"
+            sleep 2
+          done
+          
+          # Redis 대기  
+          echo "Waiting for Redis..."
+          for i in {1..30}; do
+            if redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG; then
+              echo "✅ Redis is ready"
+              break
+            fi
+            echo "Redis not ready, waiting... ($i/30)"
+            sleep 1
+          done
+          
+          # Elasticsearch 대기
+          echo "Waiting for Elasticsearch..."
+          for i in {1..60}; do
+            if curl -f http://localhost:9200/_cluster/health >/dev/null 2>&1; then
+              echo "✅ Elasticsearch is ready"
+              break
+            fi
+            echo "Elasticsearch not ready, waiting... ($i/60)"
+            sleep 2
+          done
+          
+          echo "🎉 All services are ready!"
+
+      - name: Run tests
         working-directory: ./SpringBoot
-        run: ./gradlew build -x test --no-daemon
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          # Database
+          DB_SERVER: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASS: ci_test_password
+          # Redis
+          REDIS_CACHE_HOST: localhost
+          REDIS_CACHE_PORT: 6379
+          REDIS_SESSION1_HOST: localhost
+          REDIS_SESSION1_PORT: 6380
+          REDIS_SESSION2_HOST: localhost
+          REDIS_SESSION2_PORT: 6381
+          # Elasticsearch
+          ELASTICSEARCH_SERVER: localhost
+          ELASTICSEARCH_PORT: 9200
+          # JWT (테스트용 키)
+          JWT_SECRET_KEY: test-secret-key-for-ci-cd-pipeline-needs-to-be-at-least-256-bits-long-for-security
+          # External APIs (테스트용 더미값)
+          KAKAO_CLIENT_ID: test-kakao-client-id
+          KAKAO_CLIENT_SECRET: test-kakao-client-secret
+          DEEPSEARCH_API_KEY: test-deepsearch-api-key
+          OPENAI_API_KEY: test-openai-api-key
+        run: ./gradlew test --no-daemon --continue
 
-      - name: Check build output
-        run: ls -la SpringBoot/build/libs/
+      - name: Build application
+        working-directory: ./SpringBoot
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          DB_SERVER: localhost
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASS: ci_test_password
+          REDIS_CACHE_HOST: localhost
+          REDIS_CACHE_PORT: 6379
+          REDIS_SESSION1_HOST: localhost
+          REDIS_SESSION1_PORT: 6380
+          REDIS_SESSION2_HOST: localhost
+          REDIS_SESSION2_PORT: 6381
+          ELASTICSEARCH_SERVER: localhost
+          ELASTICSEARCH_PORT: 9200
+          JWT_SECRET_KEY: test-secret-key-for-ci-cd-pipeline-needs-to-be-at-least-256-bits-long-for-security
+          KAKAO_CLIENT_ID: test-kakao-client-id
+          KAKAO_CLIENT_SECRET: test-kakao-client-secret
+          DEEPSEARCH_API_KEY: test-deepsearch-api-key
+          OPENAI_API_KEY: test-openai-api-key
+        run: ./gradlew build --no-daemon
 
-      - name: Get branch name
-        id: branch
-        run: echo "name=$(echo ${GITHUB_REF#refs/heads/} | sed 's/\//-/g')" >> $GITHUB_OUTPUT
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            SpringBoot/build/reports/tests/
+            SpringBoot/build/test-results/
+          retention-days: 30
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
         with:
-          name: app-jar-${{ steps.branch.outputs.name }}
+          name: application-jar
           path: SpringBoot/build/libs/*.jar
+          retention-days: 30
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Java Version: 17" >> $GITHUB_STEP_SUMMARY
+          echo "- Services: MySQL, Redis (x3), Elasticsearch" >> $GITHUB_STEP_SUMMARY
