@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,32 +25,52 @@ public class KakaoNewsService {
 
     private final ElasticsearchClient client;
 
-    public List<NewsEsDocument> searchNews(String keyword, String blockKeyword) {
-
+    /**
+     * 사용자의 키워드를 리스트로 묶어 뉴스 검색 메서드에 전달합니다.
+     * @param includeKeywords 포함 키워드
+     * @param blockKeywords 제외 키워드
+     * @return
+     */
+    public List<NewsEsDocument> searchNews(List<String> includeKeywords, List<String> blockKeywords) {
         try {
+
+            //전날 기준으로 시간을 측정
             LocalDate yesterday = LocalDate.now().minusDays(1);
-            //키워드 추출
-            Query includeKeyword = Query.of(q -> q
-                    .multiMatch(m -> m
-                            .query(keyword)
-                            .fields("title", "summary", "content_url", "publisher")
-                            .type(TextQueryType.BoolPrefix)
+
+            // 포함 키워드 쿼리
+            Query includeKeywordQuery = Query.of(q -> q
+                    .bool(b -> b
+                            .should(includeKeywords.stream()
+                                    .map(kw -> Query.of(q2 -> q2
+                                            .multiMatch(m -> m
+                                                    .query(kw)
+                                                    .fields("title", "summary", "content_url", "publisher")
+                                                    .type(TextQueryType.BoolPrefix)
+                                            )
+                                    ))
+                                    .collect(Collectors.toList())
+                            )
+                            .minimumShouldMatch("1")
                     )
             );
 
-            // 블랙 키워드 쿼리
-            Query excludeKeyword = Query.of(q -> q
+            // 제외 키워드 쿼리
+            Query excludeKeywordQuery = Query.of(q -> q
                     .bool(b -> b
-                            .should(s -> s
-                                    .multiMatch(m -> m
-                                            .query(blockKeyword)
-                                            .fields("title", "summary", "content_url", "publisher")
-                                            .type(TextQueryType.BoolPrefix)
-                                    )
+                            .should(blockKeywords.stream()
+                                    .map(kw -> Query.of(q2 -> q2
+                                            .multiMatch(m -> m
+                                                    .query(kw)
+                                                    .fields("title", "summary", "content_url", "publisher")
+                                                    .type(TextQueryType.BoolPrefix)
+                                            )
+                                    ))
+                                    .collect(Collectors.toList())
                             )
                     )
             );
 
+            // 날짜 필터 쿼리
             Query dateFilter = Query.of(q -> q
                     .range(r -> r
                             .field("published_at")
@@ -59,19 +80,16 @@ public class KakaoNewsService {
                     )
             );
 
-
-            // 전체 쿼리 (키워드와 블랙 키워드를 포함한 전체 쿼리)
+            // 전체 쿼리 조합
             Query finalQuery = Query.of(q -> q
                     .bool(b -> b
-                            .must(includeKeyword)
+                            .must(includeKeywordQuery)
                             .must(dateFilter)
-                            .mustNot(excludeKeyword)
+                            .mustNot(excludeKeywordQuery)
                     )
             );
 
-
-
-            // 검색 엔진
+            // 검색 요청
             SearchRequest request = SearchRequest.of(s -> s
                     .index("news-index-nori")
                     .query(finalQuery)
@@ -81,20 +99,18 @@ public class KakaoNewsService {
                     )
             );
 
+            // 검색 수행
             SearchResponse<NewsEsDocument> response = client.search(request, NewsEsDocument.class);
 
-            // 스코어 확인 코드
+            // 로그: 스코어 확인
             response.hits().hits().forEach(hit ->
-                    log.info("✅ {} | score: {}", hit.source().getTitle(), hit.score())
+                    log.info("{} | score: {}", hit.source().getTitle(), hit.score())
             );
 
-            // 반환
+            // 결과 반환
             return response.hits().hits().stream()
-                    .map(hit -> {
-                        NewsEsDocument doc = hit.source();
-                        return doc;
-                    })
-                    .toList();
+                    .map(hit -> hit.source())
+                    .collect(Collectors.toList());
 
         } catch (IOException e) {
             log.error("키워드 기반 뉴스 검색 실패: {}", e.getMessage(), e);
