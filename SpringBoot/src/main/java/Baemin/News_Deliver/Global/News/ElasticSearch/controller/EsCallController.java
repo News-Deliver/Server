@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/elasticsearch")
@@ -17,7 +19,7 @@ public class EsCallController {
     //ADMIN(관리자)기능이 추가된다면 유지할 여지가 있음
     //FIXME
     @GetMapping("/bulk")
-    public void bulk() {
+    public void bulk() throws IOException {
         newsEsService.esBulkService();
     }
 }

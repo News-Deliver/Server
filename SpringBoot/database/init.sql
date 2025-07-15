@@ -104,6 +104,7 @@ CREATE TABLE hot_topic
     id         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '고유번호',
     topic_rank BIGINT       NOT NULL COMMENT '핫토픽 순위',
     keyword    VARCHAR(255) NOT NULL COMMENT '핫토픽 키워드',
+    keyword_count BIGINT    NOT NULL COMMENT '핫토픽 조회건수',
     topic_date DATETIME     NOT NULL COMMENT '해당날짜(계산일 기준 하루 전)',
     PRIMARY KEY (id)
 );

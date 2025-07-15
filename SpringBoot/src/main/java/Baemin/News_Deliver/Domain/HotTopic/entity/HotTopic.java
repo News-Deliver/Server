@@ -24,6 +24,9 @@ public class HotTopic {
     @Column(name = "keyword", nullable = false, length = 255)
     private String keyword;
 
+    @Column(name = "keyword_count", nullable = false)
+    private Long keywordCount;
+
     @Column(name = "topic_date", nullable = false)
     private LocalDateTime topicDate;
 }

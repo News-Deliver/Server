@@ -3,15 +3,22 @@ package Baemin.News_Deliver.Global.News.ElasticSearch.service;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.News.Batch.dto.NewsItemDTO;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 뉴스 Elasticsearch 색인 서비스
@@ -42,7 +49,7 @@ import java.util.List;
 public class NewsEsService {
 
     private final JdbcTemplate jdbcTemplate;
-    private final ElasticsearchClient client;
+    private final ElasticsearchClient elasticsearchClient;
     private static final String[] SECTIONS = {
             "politics", "economy", "society", "culture", "tech", "entertainment", "opinion"
     };
@@ -50,7 +57,7 @@ public class NewsEsService {
     /**
      * 섹션별 뉴스 데이터를 ES에 색인하는 메인 실행 메서드
      */
-    public void esBulkService() {
+    public void esBulkService() throws IOException {
         long totalStart = System.nanoTime(); // 전체 시작 시간
         int totalCount = 0;
         int totalFailureCount = 0;
@@ -131,38 +138,76 @@ public class NewsEsService {
      * @param section 섹션명 (로그 출력용)
      * @return 색인 성공 여부 (true: 전체 성공, false: 일부 실패 또는 전체 실패)
      */
-    private boolean bulkInsert(List<NewsEsDocument> docs, String section) {
-        try {
-            BulkRequest.Builder br = new BulkRequest.Builder();
+    private boolean bulkInsert(List<NewsEsDocument> docs, String section) throws IOException {
+        BulkRequest.Builder br = new BulkRequest.Builder();
 
-            for (NewsEsDocument doc : docs) {
-                br.operations(op -> op
-                        .index(idx -> idx
-                                .index("news-index-nori")
-                                .id(doc.getId())
-                                .document(doc)
-                        )
-                );
-            }
+        for (NewsEsDocument doc : docs) {
+            br.operations(op -> op
+                    .index(idx -> idx
+                            .index("news-index-nori")
+                            .id(doc.getId())
+                            .document(doc)
+                    )
+            );
+        }
 
-            BulkResponse result = client.bulk(br.build());
+        BulkResponse result = elasticsearchClient.bulk(br.build());
 
-            if (result.errors()) {
-                log.warn("⚠️ [{}] 색인 중 일부 실패 발생", section);
-                result.items().stream()
-                        .filter(item -> item.error() != null)
-                        .forEach(item ->
-                                log.warn("❌ 에러 - ID: {}, 이유: {}", item.id(), item.error().reason()));
-                return false;
-            } else {
-                log.info("✅ [{}] 섹션 색인 성공: {}건", section, docs.size());
-                return true;
-            }
-
-        } catch (IOException e) {
-            log.error("❌ [{}] 섹션 Elasticsearch Bulk 요청 실패: {}", section, e.getMessage(), e);
+        if (result.errors()) {
+            log.warn("⚠️ [{}] 색인 중 일부 실패 발생", section);
+            result.items().stream()
+                    .filter(item -> item.error() != null)
+                    .forEach(item ->
+                            log.warn("❌ 에러 - ID: {}, 이유: {}", item.id(), item.error().reason()));
             return false;
+        } else {
+            log.info("✅ [{}] 섹션 색인 성공: {}건", section, docs.size());
+            return true;
         }
     }
 
+    public List<NewsEsDocument> searchByKeyword(String keyword, int size) throws IOException {
+        SearchResponse<NewsEsDocument> response = elasticsearchClient.search(s -> s
+                        .index("news-index-nori")
+                        .size(size)
+                        .query(q -> q
+                                .match(m -> m
+                                        .field("combinedTokens")
+                                        .query(keyword)
+                                )
+                        )
+                        .sort(sort -> sort
+                                .score(sc -> sc.order(SortOrder.Desc))
+                        ),
+                NewsEsDocument.class
+        );
+
+        return response.hits().hits().stream()
+                .map(Hit::source)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    public List<StringTermsBucket> getTopKeywordsForDateRange(LocalDate gte, LocalDate lt, int size) throws IOException {
+        SearchResponse<Void> response = elasticsearchClient.search(s -> s
+                .index("news-index-nori")
+                .size(0)
+                .query(q -> q.range(r -> r
+                        .field("published_at")
+                        .gte(JsonData.of(gte.toString()))
+                        .lt(JsonData.of(lt.toString()))
+                ))
+                .aggregations("top_combined_keywords", a -> a
+                        .terms(t -> t
+                                .field("combinedTokens")
+                                .size(size)
+                        )
+                ), Void.class);
+
+        return response.aggregations()
+                .get("top_combined_keywords")
+                .sterms()
+                .buckets()
+                .array();
+    }
 }
