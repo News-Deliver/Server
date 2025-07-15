@@ -43,7 +43,7 @@ public enum ErrorCode {
 
 
     // Setting 관련
-    SETTING_NOT_FOUND("SETTING_ERROR_901", "설정을 찾을 수 없습니다", HttpStatus.NOT_FOUND);
+    SETTING_NOT_FOUND("SETTING_ERROR_901", "설정을 찾을 수 없습니다", HttpStatus.NOT_FOUND),
     /* HotTopic 예외 : 7xx */
     /* Kakao 예외 : 8xx */
     /* Mypage 예외 : 9xx */

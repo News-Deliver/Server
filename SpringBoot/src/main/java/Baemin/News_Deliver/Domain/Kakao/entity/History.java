@@ -18,6 +18,12 @@ public class History {
     @Column(name = "published_at", nullable = false)
     private LocalDateTime publishedAt;
 
+    @Column(name = "setting_keyword", nullable = false)
+    private String settingKeyword;
+
+    @Column(name = "block_keyword", nullable = true)
+    private String blockKeyword;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "setting_id", nullable = false)
     private Setting setting;
@@ -25,6 +31,8 @@ public class History {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "news_id", nullable = false)
     private News news;
+
+
 
 
 }
