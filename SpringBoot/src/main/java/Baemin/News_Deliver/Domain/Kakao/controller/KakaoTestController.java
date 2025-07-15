@@ -48,10 +48,12 @@ public class KakaoTestController {
         }
     }
 
+    //테스트용 코드
     @GetMapping("/search-news")
-    public ResponseEntity<List<NewsEsDocument>> searchNews(
-            @RequestParam String keyword,
-            @RequestParam(required = false, defaultValue = "") String blockKeyword) {
+    public ResponseEntity<List<NewsEsDocument>> searchNews() {
+        List<String> keyword = null;
+        List<String> blockKeyword = null;
+
         return ResponseEntity.ok(newsSearchService.searchNews(keyword, blockKeyword));
     }
 
