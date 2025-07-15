@@ -1,10 +1,11 @@
-name: CI - 완전한 빌드 및 테스트
+name: 테스트만 수행 (배포 없음)
 
 on:
-  push:
-    branches: [ main, develop, 'feat/git' ]  # feat/git만 허용
   pull_request:
     branches: [ main, develop ]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [ develop ]  # develop 브랜치도 테스트만
 
 jobs:
   test:
@@ -131,31 +132,35 @@ jobs:
           
           echo "🎉 모든 서비스 준비 완료!"
 
-      - name: 애플리케이션 빌드 (테스트 제외)
+      - name: 애플리케이션 빌드 및 테스트
         working-directory: ./SpringBoot
-        run: ./gradlew build -x test --no-daemon
+        run: ./gradlew build --no-daemon
 
       - name: 테스트 결과 업로드
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: build-reports
+          name: test-reports-${{ github.run_number }}
           path: |
             SpringBoot/build/reports/
-          retention-days: 30
+            SpringBoot/build/test-results/
+          retention-days: 7
 
-      - name: JAR 파일 업로드
-        uses: actions/upload-artifact@v4
-        with:
-          name: application-jar
-          path: SpringBoot/build/libs/*.jar
-          retention-days: 30
-
-      - name: 빌드 요약
+      - name: 테스트 요약
         if: always()
         run: |
-          echo "## 🏗️ 빌드 결과" >> $GITHUB_STEP_SUMMARY
-          echo "- 빌드 상태: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Java 버전: 17" >> $GITHUB_STEP_SUMMARY
-          echo "- 서비스: MySQL, Redis (x3), Elasticsearch" >> $GITHUB_STEP_SUMMARY
-          echo "- 브랜치: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧪 테스트 결과 (배포 없음)" >> $GITHUB_STEP_SUMMARY
+          echo "- **테스트 상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "- **PR 번호**: #${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **소스 브랜치**: ${{ github.head_ref }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **타겟 브랜치**: ${{ github.base_ref }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **브랜치**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "- **Java 버전**: 17" >> $GITHUB_STEP_SUMMARY
+          echo "- **서비스**: MySQL, Redis (x3), Elasticsearch" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ 이 작업은 테스트만 수행합니다 (배포 없음)" >> $GITHUB_STEP_SUMMARY
