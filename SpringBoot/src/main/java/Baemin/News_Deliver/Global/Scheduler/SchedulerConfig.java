@@ -1,6 +1,5 @@
 package Baemin.News_Deliver.Global.Scheduler;
 
-import Baemin.News_Deliver.Global.News.JPAINSERT.service.JpaService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

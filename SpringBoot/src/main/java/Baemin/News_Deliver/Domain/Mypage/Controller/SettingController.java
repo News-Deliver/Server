@@ -15,8 +15,8 @@ public class SettingController {
 
     private final SettingService settingService;
 
-    @GetMapping
-    public ResponseEntity<List<SettingDTO>> getAllSetting(@RequestParam("userId") Long userId) {
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<SettingDTO>> getAllSetting(@PathVariable("userId") Long userId) {
         List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
         return ResponseEntity.ok(settings);
     }
@@ -38,8 +38,8 @@ public class SettingController {
         return settingService.updateSetting(settingDTO);
     }
 
-    @DeleteMapping
-    public ResponseEntity<Void> deleteSetting(@RequestParam("id") Long id) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteSetting(@PathVariable("id") Long id) {
 
         return settingService.deleteSetting(id);
     }
