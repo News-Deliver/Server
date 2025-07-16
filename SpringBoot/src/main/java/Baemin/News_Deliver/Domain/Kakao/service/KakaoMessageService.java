@@ -39,7 +39,6 @@ public class KakaoMessageService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final KakaoNewsService newsService;
     private final SettingService settingService;
-    private final UserRepository userRepository;
     private final NewsRepository newsRepository;
     private final SettingRepository settingRepository;
     private final HistoryRepository historyRepository;
@@ -55,25 +54,26 @@ public class KakaoMessageService {
     /**
      * 현재 로그인한 카카오 유저의 Access Token을 가져옴
      */
-    public String getKakaoUserAccessToken() {
+    public String getKakaoUserAccessToken(String refreshAccessToken, Long userId) {
+
         //유저의 accesstoken을 가져 올 것
-        String accessToken = provider.refreshAccessToken("4YxBGonTT2Q6OyFlgF4HXDbMZpVSbzCwAAAAAgoNDSEAAAGYDIqbUFIZRy9oVvUS");
+        String accessToken = provider.refreshAccessToken(refreshAccessToken);
         if (accessToken == null || accessToken.isEmpty()) {
             throw new RuntimeException("Access Token을 가져올 수 없습니다.");
         }
 
-        getNewsEsDocumentList();
+        getNewsEsDocumentList(userId);
         return accessToken;
     }
 
     /**
      * 메시지 전송 메서드
      */
-    public boolean sendKakaoMessage() {
+    public boolean sendKakaoMessage(String refreshAccessToken, Long userId) {
         try {
-            String accessToken = getKakaoUserAccessToken();
+            String accessToken = getKakaoUserAccessToken(refreshAccessToken, userId);
 
-            List<NewsEsDocument> newsList = getNewsEsDocumentList();
+            List<NewsEsDocument> newsList = getNewsEsDocumentList(userId);
             if (newsList == null) return false;
 
             // 헤더 설정
@@ -110,10 +110,9 @@ public class KakaoMessageService {
      *
      * @return NewsEsDocument의 리스트
      */
-    private List<NewsEsDocument> getNewsEsDocumentList() {
+    private List<NewsEsDocument> getNewsEsDocumentList(Long userId) {
 
         //유저 정보를 기준으로 Settig값 가져오기
-        Long userId = 1L;
         List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
 
         List<String> keywords = new ArrayList<>();
