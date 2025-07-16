@@ -100,11 +100,12 @@ public class AuthController {
         String kakaoId = authentication.getName();
         UserResponse userResponse = authService.getCurrentUser(kakaoId);
 
+        //dgdfgfddfg
         return ResponseEntity.ok(
                 new ApiResponseWrapper<>(userResponse, "사용자 정보 조회 성공")
         );
     }
-
+//dfgdfgdfgdfgdfgdfg
     /**
      * 로그인 상태 확인 API
      */
@@ -133,6 +134,7 @@ public class AuthController {
                                 "kakaoId", authentication.getName()
                         ),
                         "로그인된 상태"
+
                 )
         );
     }
