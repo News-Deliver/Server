@@ -40,5 +40,18 @@ public class FeedBackController {
                 body(new ApiResponseWrapper<>(result,"요청하신 피드백 작업이 정상적으로 처리 되었습니다."));
     }
 
+    @Operation(summary = "콘텐츠 품질 피드백 API", description = "유저가 각 히스토리별 콘텐츠 품질 피드백을 남깁니다.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "정상 처리됨"),
+                    @ApiResponse(responseCode = "401", description = "유저 인증 오류"),
+                    @ApiResponse(responseCode = "500", description = "서버 내부 오류")
+            })
+    @PostMapping("/content")
+    public ResponseEntity<ApiResponseWrapper<Long>> contentQualityFeedback(@RequestBody FeedbackRequest request) {
+        Long result = feedBackService.contentQualityFeedback(request);
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(new ApiResponseWrapper<>(result, "콘텐츠 품질 피드백이 정상적으로 처리되었습니다."));
+    }
+
 
 }

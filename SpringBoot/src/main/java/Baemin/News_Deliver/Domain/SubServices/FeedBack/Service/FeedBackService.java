@@ -21,6 +21,8 @@ public class FeedBackService {
     private final FeedbackRepository feedbackRepository;
     private final HistoryRepository historyRepository;
 
+    // ======================= 키워드 반영도 피드백 메서드 =========================
+
     /**
      * 키워드 반영도 피드백 메서드
      *
@@ -69,4 +71,49 @@ public class FeedBackService {
         }
 
     }
+
+    // ======================= 콘텐츠 품질 피드백 메서드 =========================
+
+    /**
+     * 콘텐츠 품질 피드백 메서드
+     *
+     * @param request 피드백 요청 DTO
+     * @return 피드백 결과 반환
+     */
+    public Long contentQualityFeedback(FeedbackRequest request) {
+
+        // 피드백 조회
+        Optional<Feedback> optionalFeedback = feedbackRepository.findById(request.getHistoryId());
+
+        // 히스토리 조회
+        History history = historyRepository.findById(request.getHistoryId())
+                .orElseThrow(() -> new SubServicesException(ErrorCode.HISTORY_NOT_FOUND));
+
+        if (optionalFeedback.isPresent()) {
+            Feedback feedback = optionalFeedback.get();
+            Long currentValue = feedback.getContentQuality(); // 현재 값
+            Long requestValue = request.getFeedbackValue();   // 요청 값
+
+            if (currentValue == null) currentValue = 0L;
+
+            if (currentValue.equals(requestValue)) {
+                feedback.setContentQuality(0L); // 같은 값이면 취소
+            } else {
+                feedback.setContentQuality(requestValue); // 다른 값이면 반영
+            }
+
+            feedbackRepository.save(feedback);
+            return feedback.getContentQuality();
+
+        } else {
+            Feedback feedback = Feedback.builder()
+                    .history(history)
+                    .keywordReflection(null)
+                    .contentQuality(request.getFeedbackValue())
+                    .build();
+            feedbackRepository.save(feedback);
+            return feedback.getContentQuality();
+        }
+    }
+
 }
