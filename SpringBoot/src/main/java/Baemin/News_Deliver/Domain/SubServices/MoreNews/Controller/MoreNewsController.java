@@ -1,6 +1,6 @@
 package Baemin.News_Deliver.Domain.SubServices.MoreNews.Controller;
 
-import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.NewsHistoryResponse;
+import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.GroupedNewsHistoryResponse;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.Service.MoreNewsService;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
@@ -47,22 +47,20 @@ public class MoreNewsController {
     }
 
     /**
-     * (페이지 네이션이 적용된) 내 히스토리 조회하기 API
-     *
-     *  요청 GET /api/news/history?page=1&size=5
+     * 내 히스토리 조회하기 API
      *
      * @param page 시작 페이지
-     * @param size 한 페이지의 사이즈
-     * @return 페이지 네이션이 적용된 뉴스 기사 리스트
+     * @param size 페이지 사이즈
+     * @return 페이지 네이션이 적용된 히스토리
      */
     @GetMapping("")
-    public ResponseEntity<ApiResponseWrapper<List<NewsHistoryResponse>>> getNewsHistoryList(
+    public ResponseEntity<ApiResponseWrapper<List<GroupedNewsHistoryResponse>>> getNewsHistoryList(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ){
-        List<NewsHistoryResponse> list = moreNewsService.getNewsHistoryList(page, size);
+            @RequestParam(defaultValue = "5") int size
+    ) {
+        List<GroupedNewsHistoryResponse> groupedList = moreNewsService.getGroupedNewsHistory(page, size);
 
-        return ResponseEntity.status(200)
-                .body(new ApiResponseWrapper<>(list,"히스토리 조회 성공"));
+        return ResponseEntity.ok(new ApiResponseWrapper<>(groupedList, "히스토리 조회 성공"));
     }
+
 }

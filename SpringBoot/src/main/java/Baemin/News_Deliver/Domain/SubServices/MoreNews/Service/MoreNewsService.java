@@ -3,7 +3,7 @@ package Baemin.News_Deliver.Domain.SubServices.MoreNews.Service;
 import Baemin.News_Deliver.Domain.Kakao.entity.History;
 import Baemin.News_Deliver.Domain.Kakao.repository.HistoryRepository;
 import Baemin.News_Deliver.Domain.SubServices.Exception.SubServicesException;
-import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.MoreNewsResponse;
+import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.GroupedNewsHistoryResponse;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.NewsHistoryResponse;
 import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
@@ -16,17 +16,12 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -155,28 +150,58 @@ public class MoreNewsService {
 
     // ======================= 내 히스토리 조회하기 메서드 =========================
 
+
     /**
-     * 내 히스토리 조회하기 메서드
+     * 내 히스토리 조회하기 메서드 (페이지 네이션 적용)
      *
      * @param page 시작 페이지
-     * @param size 한 페이지의 사이즈
-     * @return 히스토리 리스트
+     * @param size 페이지 사이즈
+     * @return 페이지 네이션이 적용된 히스토리
      */
-    public List<NewsHistoryResponse> getNewsHistoryList(int page, int size) {
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "publishedAt"));
-
-        // 테스팅을 위한 임시 하드 코딩
+    public List<GroupedNewsHistoryResponse> getGroupedNewsHistory(int page, int size) {
         Long userId = 1L;
 
-        // 뉴스 히스토리
-        Page<History> result = historyRepository.findAllBySetting_User_Id(userId, pageable);
+        List<History> allHistories = historyRepository.findAllBySetting_User_Id(userId);
 
-        return result.getContent().stream()
-                .map(NewsHistoryResponse::from)
+        /* 1. 그룹핑: settingId + publishedAt (시 단위로 자르기) */
+        Map<String, List<History>> grouped = allHistories.stream()
+                .collect(Collectors.groupingBy(h -> {
+                    Long settingId = h.getSetting().getId();
+                    LocalDateTime truncatedPublishedAt = h.getPublishedAt().truncatedTo(ChronoUnit.HOURS);
+                    return settingId + "_" + truncatedPublishedAt;
+                }));
+
+        /* 2. GroupedNewsHistoryResponse 리스트로 변환 */
+        List<GroupedNewsHistoryResponse> groupedList = grouped.entrySet().stream()
+                .map(entry -> {
+                    List<History> histories = entry.getValue();
+                    History any = histories.get(0); // 그룹 내 대표 뉴스
+
+                    return GroupedNewsHistoryResponse.builder()
+                            .settingId(any.getSetting().getId())
+                            .publishedAt(any.getPublishedAt().truncatedTo(ChronoUnit.HOURS)) // 대표 시간
+                            .settingKeyword(any.getSettingKeyword()) // 대표 키워드
+                            .blockKeyword(any.getBlockKeyword())     // 대표 제외 키워드
+                            .newsList(histories.stream()
+                                    .map(NewsHistoryResponse::from)
+                                    .collect(Collectors.toList()))
+                            .build();
+                })
+
+                .sorted(Comparator.comparing(GroupedNewsHistoryResponse::getPublishedAt).reversed()) // 최신순
                 .collect(Collectors.toList());
 
+        /* 3. 페이지네이션 */
+        int fromIndex = page * size;
+        int toIndex = Math.min(fromIndex + size, groupedList.size());
+
+        if (fromIndex >= groupedList.size()) {
+            return Collections.emptyList();
+        }
+
+        return groupedList.subList(fromIndex, toIndex);
     }
+
 
 
 }

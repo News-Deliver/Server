@@ -8,8 +8,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 public interface HistoryRepository extends JpaRepository<History, Long> {
     boolean existsBySettingAndNews(Setting setting, News news);
 
-    Page<History> findAllBySetting_User_Id(Long userId, Pageable pageable);
+    /* 유저아이디를 통해 히스토리 리스트 반환 */
+    List<History> findAllBySetting_User_Id(Long userId);
+
 }
