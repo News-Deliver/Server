@@ -23,12 +23,14 @@ import java.util.List;
 @RequestMapping("/kakao")
 public class KakaoController {
 
-
-
     private final KakaoMessageService kakaoMessageService;
     private final KakaoNewsService newsSearchService;
     private final KakaoSchedulerService kakaoSchedulerService;
     private final AuthRepository authRepository;
+
+
+    //스케쥴러를 통한 메세지 전송코드
+    //@GetMapping
 
     /**
      * 카카오톡 나에게 보내기 메시지 전송 메서드
@@ -52,7 +54,7 @@ public class KakaoController {
                 Auth auth = authRepository.findByKakaoRefreshToken(token);
                 Long userId = auth.getUser().getId();
 
-                log.info("유저 정보 확인용!!!!!! ");
+                log.info("유저 정보 확인 코드 {}", userId);
 
                 kakaoMessageService.sendKakaoMessage(token, userId);
             } catch (KakaoException e) {

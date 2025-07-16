@@ -22,6 +22,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -182,7 +183,7 @@ public class KakaoMessageService {
                 }
 
                 History history = History.builder()
-                        .publishedAt(newsDoc.getPublished_at())
+                        .publishedAt(LocalDateTime.now())
                         .setting(setting)
                         .news(newsitem)
                         .settingKeyword(String.join(",", settingDTO.getSettingKeywords()))
