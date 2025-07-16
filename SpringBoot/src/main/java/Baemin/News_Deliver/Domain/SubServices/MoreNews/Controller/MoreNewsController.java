@@ -58,9 +58,10 @@ public class MoreNewsController {
     @GetMapping("")
     public ResponseEntity<ApiResponseWrapper<List<NewsHistoryResponse>>> getNewsHistoryList(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size
+            @RequestParam(defaultValue = "10") int size
     ){
         List<NewsHistoryResponse> list = moreNewsService.getNewsHistoryList(page, size);
+
         return ResponseEntity.status(200)
                 .body(new ApiResponseWrapper<>(list,"히스토리 조회 성공"));
     }

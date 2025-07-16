@@ -113,7 +113,9 @@ public class MoreNewsService {
         Query dateFilter = Query.of(q -> q
                 .range(r -> r
                         .field("published_at") // 메시지 전송일
-                        .gte(JsonData.of(publishedAt))
+                        //.gte(JsonData.of(publishedAt))
+                        // 개선:
+                        .gte(JsonData.of(publishedAt.minusDays(1)))
                 )
         );
 
@@ -165,10 +167,9 @@ public class MoreNewsService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "publishedAt"));
 
         // 테스팅을 위한 임시 하드 코딩
-
         Long userId = 1L;
-        // JPA 리포지토리 사용 시
-        //Page<History> result = historyRepository.findAllByUserId(userId, pageable);
+
+        // 뉴스 히스토리
         Page<History> result = historyRepository.findAllBySetting_User_Id(userId, pageable);
 
         return result.getContent().stream()
