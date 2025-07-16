@@ -32,8 +32,7 @@ public class KakaoSchedulerService {
             7, "SUN"
     );
 
-    public List<String> getCron() {
-        Long userId = 1L;
+    public List<String> getCron(Long userId) {
         List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
 
         List<String> crons = new ArrayList<>();

@@ -18,4 +18,6 @@ public interface AuthRepository extends JpaRepository<Auth, Long> {
 
     // User로 Auth 삭제
     void deleteByUser(User user);
+
+    Auth findByKakaoRefreshToken(String token);
 }
