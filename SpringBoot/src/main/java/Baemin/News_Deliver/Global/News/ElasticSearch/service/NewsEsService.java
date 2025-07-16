@@ -21,25 +21,19 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * 뉴스 Elasticsearch 색인 서비스
+ * 뉴스 Elasticsearch 색인 및 검색 서비스
  *
- * <p>전날 수집된 뉴스 데이터를 데이터베이스에서 조회하여,
- * 섹션별로 분리된 리스트를 생성한 후 Elasticsearch에 bulk 색인합니다.</p>
+ * <p>해당 서비스는 다음의 역할을 수행합니다:</p>
  *
- * <p>색인은 아래와 같은 과정으로 진행됩니다:</p>
- * <ol>
- *     <li>전날 뉴스 중 특정 섹션(section)에 해당하는 뉴스 DB에서 조회</li>
- *     <li>NewsItemDTO → NewsEsDocument로 변환</li>
- *     <li>Elasticsearch의 news-index-nori에 Bulk 색인</li>
- *     <li>에러 발생 시 로그 출력</li>
- * </ol>
- *
- * <p>주의 사항:</p>
  * <ul>
- *     <li>색인 대상 날짜는 항상 전날(CURDATE - 1)</li>
- *     <li>sections는 단일 값으로 저장되며, ES에는 List<String> 형태로 전달됨</li>
- *     <li>Elasticsearch 클러스터 정상 연결 필요</li>
+ *     <li>전날 수집된 뉴스 데이터를 DB에서 조회 후, Elasticsearch에 Bulk 색인</li>
+ *     <li>Elasticsearch에서 키워드 기반 뉴스 검색</li>
+ *     <li>지정 날짜 범위 내에서 인기 키워드(terms aggregation) 추출</li>
  * </ul>
+ *
+ * 색인 대상 인덱스: {@code news-index-nori}
+ * 검색 필드: {@code combinedTokens} (제목 + 요약 통합 필드)
+ * 색인 기준 날짜: {@code CURDATE() - INTERVAL 1 DAY}
  *
  * @author 김원중
  */
@@ -55,7 +49,12 @@ public class NewsEsService {
     };
 
     /**
-     * 섹션별 뉴스 데이터를 ES에 색인하는 메인 실행 메서드
+     * 섹션별 뉴스 데이터를 Elasticsearch에 Bulk 색인하는 메서드
+     *
+     * <p>전날 수집된 뉴스 중 각 섹션(section)에 해당하는 데이터를 DB에서 조회하고,
+     * {@link NewsEsDocument} 형식으로 변환한 후 ES에 색인합니다.</p>
+     *
+     * 색인 대상 인덱스: {@code news-index-nori}
      */
     public void esBulkService() throws IOException {
         long totalStart = System.nanoTime(); // 전체 시작 시간
@@ -88,10 +87,10 @@ public class NewsEsService {
     }
 
     /**
-     * DB에서 섹션별 뉴스 데이터를 조회
+     * 전날 뉴스 중 특정 섹션에 해당하는 데이터를 DB에서 조회
      *
-     * @param section 뉴스 섹션
-     * @return 뉴스 DTO 리스트
+     * @param section 뉴스 섹션 (예: politics, economy)
+     * @return 해당 섹션의 뉴스 DTO 리스트
      */
     private List<NewsItemDTO> loadNewsFromDB(String section) {
         String sql = """
@@ -114,8 +113,8 @@ public class NewsEsService {
     /**
      * DTO → Elasticsearch 도큐먼트 변환
      *
-     * @param dtoList 뉴스 DTO 리스트
-     * @return ES 도큐먼트 리스트
+     * @param dtoList DB에서 불러온 뉴스 DTO 리스트
+     * @return 변환된 Elasticsearch 도큐먼트 리스트
      */
     private List<NewsEsDocument> convertToEsDocuments(List<NewsItemDTO> dtoList) {
         return dtoList.stream()
@@ -132,11 +131,12 @@ public class NewsEsService {
     }
 
     /**
-     * Elasticsearch에 Bulk 색인 요청 수행
+     * Elasticsearch에 Bulk 색인 요청을 수행
      *
-     * @param docs 색인할 뉴스 도큐먼트 목록
-     * @param section 섹션명 (로그 출력용)
-     * @return 색인 성공 여부 (true: 전체 성공, false: 일부 실패 또는 전체 실패)
+     * @param docs 색인할 뉴스 도큐먼트 리스트
+     * @param section 섹션명 (로그 용도)
+     * @return 전체 색인 성공 여부 (true: 성공, false: 일부 실패 발생)
+     * @throws IOException Elasticsearch 통신 실패 시 발생
      */
     private boolean bulkInsert(List<NewsEsDocument> docs, String section) throws IOException {
         BulkRequest.Builder br = new BulkRequest.Builder();
@@ -166,6 +166,17 @@ public class NewsEsService {
         }
     }
 
+    /**
+     * 키워드로 뉴스 기사 검색
+     *
+     * <p>{@code combinedTokens} 필드에 대해 match 쿼리를 수행하고,
+     * 점수(score) 기준으로 내림차순 정렬된 상위 결과를 반환합니다.</p>
+     *
+     * @param keyword 검색 키워드
+     * @param size 최대 검색 결과 수
+     * @return 검색된 뉴스 도큐먼트 리스트
+     * @throws IOException Elasticsearch 검색 실패 시 발생
+     */
     public List<NewsEsDocument> searchByKeyword(String keyword, int size) throws IOException {
         SearchResponse<NewsEsDocument> response = elasticsearchClient.search(s -> s
                         .index("news-index-nori")
@@ -188,6 +199,18 @@ public class NewsEsService {
                 .toList();
     }
 
+    /**
+     * 날짜 범위 내 인기 키워드(terms aggregation) 추출
+     *
+     * <p>{@code combinedTokens} 필드에 대해 terms aggregation을 수행하여
+     * 지정한 날짜 범위 내에서 가장 많이 등장한 키워드 Top N을 추출합니다.</p>
+     *
+     * @param gte 시작 날짜 (포함)
+     * @param lt 종료 날짜 (미포함)
+     * @param size 상위 키워드 개수 (예: 10)
+     * @return 키워드 집계 결과 리스트 (StringTermsBucket)
+     * @throws IOException Elasticsearch 요청 실패 시 발생
+     */
     public List<StringTermsBucket> getTopKeywordsForDateRange(LocalDate gte, LocalDate lt, int size) throws IOException {
         SearchResponse<Void> response = elasticsearchClient.search(s -> s
                 .index("news-index-nori")

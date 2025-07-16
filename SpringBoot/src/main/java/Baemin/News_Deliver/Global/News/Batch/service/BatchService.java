@@ -5,12 +5,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.JobParametersInvalidException;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
+import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
+import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 /**
- * ✅ 뉴스 섹션별 배치 실행 서비스
+ * 뉴스 섹션별 배치 실행 서비스
  *
  * <p>이 서비스는 Spring Batch 기반으로, 미리 정의된 각 뉴스 섹션에 대해 반복적으로
  * Job을 실행합니다. 주로 수동 또는 예약된 호출을 통해 작동하며,
@@ -46,7 +50,7 @@ public class BatchService {
             "politics", "economy", "society", "culture", "tech", "entertainment", "opinion"
     };
     /**
-     * ⏳ 섹션별 뉴스 저장 배치 실행
+     * 섹션별 뉴스 저장 배치 실행
      *
      * 각 섹션에 대해 하나의 Job을 실행하며,
      * JobParameter로 섹션명과 현재 시간(`time`)을 함께 전달합니다.
@@ -54,30 +58,23 @@ public class BatchService {
      * @return ResponseEntity 응답 (성공 시 200 OK, 실패 시 500)
      */
 
-    // try ~ catch 리팩토링 필요
-    // FIXME
-    public ResponseEntity<String> runBatch() {
-        try {
-            long totalStart = System.currentTimeMillis(); // 전체 시작 시간
+    public ResponseEntity<String> runBatch() throws JobInstanceAlreadyCompleteException, JobExecutionAlreadyRunningException, JobParametersInvalidException, JobRestartException {
+        long totalStart = System.currentTimeMillis(); // 전체 시작 시간
 
-            for (String section : sections) {
-                JobParameters params = new JobParametersBuilder()
-                        .addLong("time", System.currentTimeMillis())
-                        .addString("section", section)
-                        .toJobParameters();
+        for (String section : sections) {
+            JobParameters params = new JobParametersBuilder()
+                    .addLong("time", System.currentTimeMillis())
+                    .addString("section", section)
+                    .toJobParameters();
 
-                log.info("📦 섹션별 배치 시작: {}", section);
-                jobLauncher.run(newsDataSaveJob, params);
-            }
-
-            long totalEnd = System.currentTimeMillis(); // 전체 끝 시간
-            log.info("✅ 전체 섹션 배치 소요 시간: {} ms", (totalEnd - totalStart));
-
-            return ResponseEntity.ok("뉴스 Batch 서비스 성공");
-        } catch (Exception e) {
-            log.error("❌ Batch Job Failed", e);
-            return ResponseEntity.status(500).body("뉴스 Batch 서비스 성공");
+            log.info("📦 섹션별 배치 시작: {}", section);
+            jobLauncher.run(newsDataSaveJob, params);
         }
+
+        long totalEnd = System.currentTimeMillis(); // 전체 끝 시간
+        log.info("✅ 전체 섹션 배치 소요 시간: {} ms", (totalEnd - totalStart));
+
+        return ResponseEntity.ok("뉴스 Batch 서비스 성공");
     }
 
 }

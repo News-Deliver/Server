@@ -168,8 +168,6 @@ public class BatchConfig {
     public ItemProcessor<NewsItemDTO, News> newsProcessor() {
         // 받아온 DTO를 엔티티로 변환하는 과정 (하나씩 처리)
 
-        //예시) 이렇게 dto를 뉴스 엔티티로 변환과정 필요함.
-        //return dto -> new News(dto.getTitle(), dto.getUrl());
         return dto -> {
             if (dto.getSections() == null || dto.getSections().isEmpty()) {
                 log.warn("❌ 섹션 정보 없음 → 건너뜀 (title: {})", dto.getTitle());
