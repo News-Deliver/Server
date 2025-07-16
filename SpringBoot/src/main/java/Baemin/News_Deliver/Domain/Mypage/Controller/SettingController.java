@@ -2,13 +2,16 @@ package Baemin.News_Deliver.Domain.Mypage.Controller;
 
 import Baemin.News_Deliver.Domain.Auth.Service.AuthService;
 import Baemin.News_Deliver.Domain.Mypage.DTO.SettingDTO;
+import Baemin.News_Deliver.Domain.Mypage.Exception.SettingException;
 import Baemin.News_Deliver.Domain.Mypage.service.SettingService;
+import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +26,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/setting")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "뉴스 설정 관리", description = "사용자 맞춤 뉴스 배달 설정 API")
 public class SettingController {
 
@@ -44,14 +48,21 @@ public class SettingController {
             @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
     })
     public ResponseEntity<List<SettingDTO>> getAllSetting(Authentication authentication) {
-        // 인증 객체에서 카카오 ID 추출
-        String kakaoId = authentication.getName();
+        try {
+            // 인증 객체에서 카카오 ID 추출
+            String kakaoId = authentication.getName();
 
-        // 카카오 ID로 사용자 조회
-        Long userId = authService.findByKakaoId(kakaoId).getId();
+            // 카카오 ID로 사용자 조회 (인증 실패 예외 처리)
+            Long userId = authService.findByKakaoId(kakaoId).getId();
 
-        List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
-        return ResponseEntity.ok(settings);
+            List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
+            return ResponseEntity.ok(settings);
+
+        } catch (Exception e) {
+            log.error("설정 목록 조회 실패: kakaoId={}, error={}",
+                    authentication.getName(), e.getMessage());
+            throw new SettingException(ErrorCode.USER_NOT_FOUND);
+        }
     }
 
     /**
@@ -72,14 +83,21 @@ public class SettingController {
     })
     public ResponseEntity<Long> saveSetting(@RequestBody SettingDTO settingDTO,
                                             Authentication authentication) {
-        // 인증 객체에서 카카오 ID 추출
-        String kakaoId = authentication.getName();
+        try {
+            // 인증 객체에서 카카오 ID 추출
+            String kakaoId = authentication.getName();
 
-        // 카카오 ID로 사용자 조회하여 DTO에 설정
-        Long userId = authService.findByKakaoId(kakaoId).getId();
-        settingDTO.setUserId(userId);
+            // 카카오 ID로 사용자 조회하여 DTO에 설정 (인증 실패 예외 처리)
+            Long userId = authService.findByKakaoId(kakaoId).getId();
+            settingDTO.setUserId(userId);
 
-        return settingService.saveSetting(settingDTO);
+            return settingService.saveSetting(settingDTO);
+
+        } catch (Exception e) {
+            log.error("설정 저장 실패: kakaoId={}, error={}",
+                    authentication.getName(), e.getMessage());
+            throw new SettingException(ErrorCode.SETTING_CREATION_FAILED);
+        }
     }
 
     /**
@@ -101,14 +119,21 @@ public class SettingController {
     })
     public ResponseEntity<Void> updateSetting(@RequestBody SettingDTO settingDTO,
                                               Authentication authentication) {
-        // 인증 객체에서 카카오 ID 추출
-        String kakaoId = authentication.getName();
+        try {
+            // 인증 객체에서 카카오 ID 추출
+            String kakaoId = authentication.getName();
 
-        // 카카오 ID로 사용자 조회하여 DTO에 설정 (권한 체크용)
-        Long userId = authService.findByKakaoId(kakaoId).getId();
-        settingDTO.setUserId(userId);
+            // 카카오 ID로 사용자 조회하여 DTO에 설정 (인증 실패 예외 처리)
+            Long userId = authService.findByKakaoId(kakaoId).getId();
+            settingDTO.setUserId(userId);
 
-        return settingService.updateSetting(settingDTO);
+            return settingService.updateSetting(settingDTO);
+
+        } catch (Exception e) {
+            log.error("설정 수정 실패: kakaoId={}, error={}",
+                    authentication.getName(), e.getMessage());
+            throw new SettingException(ErrorCode.SETTING_UPDATE_FAILED);
+        }
     }
 
     /**
@@ -129,13 +154,19 @@ public class SettingController {
     })
     public ResponseEntity<Void> deleteSetting(@PathVariable("id") Long id,
                                               Authentication authentication) {
-        // 인증 객체에서 카카오 ID 추출
-        String kakaoId = authentication.getName();
+        try {
+            // 인증 객체에서 카카오 ID 추출
+            String kakaoId = authentication.getName();
 
-        // 카카오 ID로 사용자 조회
-        Long userId = authService.findByKakaoId(kakaoId).getId();
+            // 카카오 ID로 사용자 조회 (인증 실패 예외 처리)
+            Long userId = authService.findByKakaoId(kakaoId).getId();
 
-        // 서비스 레이어에서 권한 체크하도록 userId 전달
-        return settingService.deleteSetting(id, userId);
+            return settingService.deleteSetting(id, userId);
+
+        } catch (Exception e) {
+            log.error("설정 삭제 실패: kakaoId={}, error={}",
+                    authentication.getName(), e.getMessage());
+            throw new SettingException(ErrorCode.SETTING_DELETE_FAILED);
+        }
     }
 }

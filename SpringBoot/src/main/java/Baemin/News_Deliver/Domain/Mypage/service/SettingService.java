@@ -84,7 +84,7 @@ public class SettingService {
             throw e; // 이미 정의된 예외는 그대로 재던지기
         } catch (Exception e) {
             log.error("설정 저장 실패: userId={}, error={}", settingDTO.getUserId(), e.getMessage());
-            throw new SettingException(ErrorCode.SETTING_NOT_FOUND); // 기존 ErrorCode 사용
+            throw new SettingException(ErrorCode.SETTING_CREATION_FAILED);
         }
     }
 
@@ -106,7 +106,7 @@ public class SettingService {
             if (!setting.getUser().getId().equals(settingDTO.getUserId())) {
                 log.warn("권한 없는 설정 수정 시도: userId={}, settingId={}, 실제소유자={}",
                         settingDTO.getUserId(), settingDTO.getId(), setting.getUser().getId());
-                throw new SettingException(ErrorCode.USER_UNAUTHORIZED); // 기존 ErrorCode 사용
+                throw new SettingException(ErrorCode.SETTING_ACCESS_DENIED);
             }
 
             // 1. 기본 설정 값 갱신
@@ -125,14 +125,14 @@ public class SettingService {
             saveDays(settingDTO, setting);
 
             log.info("설정 수정 성공: userId={}, settingId={}", settingDTO.getUserId(), setting.getId());
-            return ResponseEntity.noContent().build(); // 204 No Content
+            return ResponseEntity.noContent().build();
 
         } catch (SettingException e) {
             throw e; // 이미 정의된 예외는 그대로 재던지기
         } catch (Exception e) {
             log.error("설정 수정 실패: userId={}, settingId={}, error={}",
                     settingDTO.getUserId(), settingDTO.getId(), e.getMessage());
-            throw new SettingException(ErrorCode.SETTING_NOT_FOUND); // 기존 ErrorCode 사용
+            throw new SettingException(ErrorCode.SETTING_UPDATE_FAILED);
         }
     }
 
@@ -176,7 +176,7 @@ public class SettingService {
             if (!setting.getUser().getId().equals(userId)) {
                 log.warn("권한 없는 설정 삭제 시도: userId={}, settingId={}, 실제소유자={}",
                         userId, settingId, setting.getUser().getId());
-                throw new SettingException(ErrorCode.USER_UNAUTHORIZED); // 기존 ErrorCode 사용
+                throw new SettingException(ErrorCode.SETTING_ACCESS_DENIED);
             }
 
             settingKeywordRepository.deleteBySetting(setting);
@@ -194,7 +194,7 @@ public class SettingService {
             throw e; // 이미 정의된 예외는 그대로 재던지기
         } catch (Exception e) {
             log.error("설정 삭제 실패: userId={}, settingId={}, error={}", userId, settingId, e.getMessage());
-            throw new SettingException(ErrorCode.SETTING_NOT_FOUND); // 기존 ErrorCode 사용
+            throw new SettingException(ErrorCode.SETTING_DELETE_FAILED);
         }
     }
 
