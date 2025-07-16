@@ -117,6 +117,7 @@ services:
       - backend
     volumes:
       - ./ElasticSearch/stopwords.txt:/usr/share/elasticsearch/config/stopwords.txt
+      - es-data:/usr/share/elasticsearch/data
 
 #  prometheus:
 #    image: prom/prometheus:latest
@@ -140,6 +141,7 @@ volumes:
   mysql-data:
   redis-session1-data:
   redis-session2-data:
+  es-data:
 
 networks:
   backend:
