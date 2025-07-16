@@ -57,7 +57,7 @@ public class KakaoMessageService {
      */
     public String getKakaoUserAccessToken() {
         //유저의 accesstoken을 가져 올 것
-        String accessToken = provider.refreshAccessToken("4YxBGonTT2Q6OyFlgF4HXDbMZpVSbzCwAAAAAgoNDSEAAAGYDIqbUFIZRy9oVvUS");
+        String accessToken = provider.refreshAccessToken("B70GjhLRo5kCUBUpRNQ-q4QXqfynzRW1AAAAAgoNFKMAAAGYDS-hJswhKCpFsUJR");
         if (accessToken == null || accessToken.isEmpty()) {
             throw new RuntimeException("Access Token을 가져올 수 없습니다.");
         }
