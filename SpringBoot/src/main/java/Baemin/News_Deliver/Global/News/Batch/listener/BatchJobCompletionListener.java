@@ -9,7 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * ✅ 뉴스 배치 작업 완료 후 실행되는 리스너
+ * 뉴스 배치 작업 완료 후 실행되는 리스너
  *
  * <p>해당 리스너는 Spring Batch Job이 성공적으로 완료되었을 때 실행됩니다.
  * 이전 날짜(어제 기준) 뉴스 중에서 제목과 언론사가 동일한 중복 뉴스가 있는 경우,
