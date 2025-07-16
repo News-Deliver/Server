@@ -101,8 +101,8 @@ public class NewsEsService {
                 """;
 
         return jdbcTemplate.query(sql, new Object[]{section}, (rs, rowNum) -> new NewsItemDTO(
-                String.valueOf(rs.getLong("id")), // ES에서는 문자열 ID가 안전
-                List.of(rs.getString("sections")), // 단일 값이지만 ES는 List<String> 타입
+                String.valueOf(rs.getLong("id")),
+                List.of(rs.getString("sections")),
                 rs.getString("title"),
                 rs.getString("publisher"),
                 rs.getString("summary"),

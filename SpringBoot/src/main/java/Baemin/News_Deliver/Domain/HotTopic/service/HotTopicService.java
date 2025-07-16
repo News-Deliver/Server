@@ -7,18 +7,15 @@ import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.News.ElasticSearch.service.NewsEsService;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
-import co.elastic.clients.elasticsearch.core.SearchResponse;
-import co.elastic.clients.elasticsearch.core.search.Hit;
-import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Slf4j
@@ -30,8 +27,13 @@ public class HotTopicService {
     private final HotTopicRepository hotTopicRepository;
     private final NewsEsService elasticSearchService;
 
+    //ElasticSearch에서 "어제"의 핫토픽 추출 > 반환
     public List<HotTopicResponseDTO> getHotTopicList() {
-        return hotTopicRepository.findAll().stream()
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        LocalDateTime startOfYesterday = yesterday.atStartOfDay(); // 어제 00:00:00
+        LocalDateTime endOfYesterday = yesterday.atTime(LocalTime.MAX); // 어제 23:59:59.999999999
+
+        return hotTopicRepository.findTop10ByTopicDateBetweenOrderByTopicRankAsc(startOfYesterday, endOfYesterday).stream()
                 .map(entity -> HotTopicResponseDTO.builder()
                         .topicRank(entity.getTopicRank())
                         .keyword(entity.getKeyword())
@@ -41,13 +43,14 @@ public class HotTopicService {
                 .toList();
     }
 
+    //ElasticSearch에서 "어제"의 핫토픽 추출 > DB에 저장
     @Transactional
     public void getAndSaveHotTopic() throws IOException {
-        LocalDate now = LocalDate.now();
-        LocalDate yesterday = now.minusDays(1);
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
 
         List<StringTermsBucket> buckets = elasticSearchService.getTopKeywordsForDateRange(
-                yesterday, now, 10
+                yesterday, today, 10
         );
 
         long rank = 1;
@@ -61,8 +64,6 @@ public class HotTopicService {
 
             hotTopicRepository.save(topic);
         }
-
-        log.info("🔥 HotTopic 저장 완료: {}건", buckets.size());
     }
 
     public List<NewsEsDocument> getNewsList(String keyword, int size) throws IOException {
