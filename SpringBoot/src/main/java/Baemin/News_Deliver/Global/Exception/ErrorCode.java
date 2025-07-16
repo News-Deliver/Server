@@ -49,11 +49,12 @@ public enum ErrorCode {
 
 
     /* Kakao 예외 : 8xx */
-    MESSAGE_SEND_FAILED("KAKAO_ERROR_801", "카카오 메시지 전송 실패", HttpStatus.INTERNAL_SERVER_ERROR);
+    MESSAGE_SEND_FAILED("KAKAO_ERROR_801", "카카오 메시지 전송 실패", HttpStatus.INTERNAL_SERVER_ERROR),
 
 
     /* Mypage 예외 : 9xx */
     /* SubServices 예외 : 10xx */
+    HISTORY_NOT_FOUND("SUB_ERROR_1001","히스토리를 찾을 수 없는 오류가 발생했습니다.", HttpStatus.NOT_FOUND);
 
     private final String errorCode;
     private final String message;
