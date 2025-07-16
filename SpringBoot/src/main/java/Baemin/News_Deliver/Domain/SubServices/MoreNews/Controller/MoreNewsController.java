@@ -1,5 +1,6 @@
 package Baemin.News_Deliver.Domain.SubServices.MoreNews.Controller;
 
+import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.NewsHistoryResponse;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.Service.MoreNewsService;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
@@ -8,17 +9,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/sub/more")
+@RequestMapping("/sub/history")
 @Tag(name = "Sub/More-News", description = "서브 / 뉴스 더보기 API")
 public class MoreNewsController {
 
@@ -46,5 +44,24 @@ public class MoreNewsController {
         return ResponseEntity.status(201)
                 .body(new ApiResponseWrapper<>(newsList,"뉴스 기사가 정상적으로 추가 반환되었습니다."));
 
+    }
+
+    /**
+     * (페이지 네이션이 적용된) 내 히스토리 조회하기 API
+     *
+     *  요청 GET /api/news/history?page=1&size=5
+     *
+     * @param page 시작 페이지
+     * @param size 한 페이지의 사이즈
+     * @return 페이지 네이션이 적용된 뉴스 기사 리스트
+     */
+    @GetMapping("")
+    public ResponseEntity<ApiResponseWrapper<List<NewsHistoryResponse>>> getNewsHistoryList(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size
+    ){
+        List<NewsHistoryResponse> list = moreNewsService.getNewsHistoryList(page, size);
+        return ResponseEntity.status(200)
+                .body(new ApiResponseWrapper<>(list,"히스토리 조회 성공"));
     }
 }

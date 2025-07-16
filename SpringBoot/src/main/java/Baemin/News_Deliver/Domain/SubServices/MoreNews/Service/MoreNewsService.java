@@ -4,6 +4,7 @@ import Baemin.News_Deliver.Domain.Kakao.entity.History;
 import Baemin.News_Deliver.Domain.Kakao.repository.HistoryRepository;
 import Baemin.News_Deliver.Domain.SubServices.Exception.SubServicesException;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.MoreNewsResponse;
+import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.NewsHistoryResponse;
 import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
@@ -15,6 +16,10 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -31,6 +36,8 @@ public class MoreNewsService {
 
     private final HistoryRepository historyRepository;
     private final ElasticsearchClient client;
+
+    // ======================= 뉴스 추가 검색 메서드 =========================
 
     /**
      * 뉴스 추가 검색 메서드
@@ -143,5 +150,32 @@ public class MoreNewsService {
                 .map(Hit::source)
                 .toList();
     }
+
+    // ======================= 내 히스토리 조회하기 메서드 =========================
+
+    /**
+     * 내 히스토리 조회하기 메서드
+     *
+     * @param page 시작 페이지
+     * @param size 한 페이지의 사이즈
+     * @return 히스토리 리스트
+     */
+    public List<NewsHistoryResponse> getNewsHistoryList(int page, int size) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "publishedAt"));
+
+        // 테스팅을 위한 임시 하드 코딩
+
+        Long userId = 1L;
+        // JPA 리포지토리 사용 시
+        //Page<History> result = historyRepository.findAllByUserId(userId, pageable);
+        Page<History> result = historyRepository.findAllBySetting_User_Id(userId, pageable);
+
+        return result.getContent().stream()
+                .map(NewsHistoryResponse::from)
+                .collect(Collectors.toList());
+
+    }
+
 
 }
