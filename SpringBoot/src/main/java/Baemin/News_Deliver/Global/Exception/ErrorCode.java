@@ -54,7 +54,9 @@ public enum ErrorCode {
 
     /* Mypage 예외 : 9xx */
     /* SubServices 예외 : 10xx */
-    HISTORY_NOT_FOUND("SUB_ERROR_1001","히스토리를 찾을 수 없는 오류가 발생했습니다.", HttpStatus.NOT_FOUND);
+    HISTORY_NOT_FOUND("SUB_ERROR_1001","히스토리 객체를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    FEEDBACK_NOT_FOUND("SUB_ERROR_1051","피드백 객체를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),;
 
     private final String errorCode;
     private final String message;
