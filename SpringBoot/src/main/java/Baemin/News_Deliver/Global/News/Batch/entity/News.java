@@ -1,4 +1,4 @@
-package Baemin.News_Deliver.Global.News.JPAINSERT.entity;
+package Baemin.News_Deliver.Global.News.Batch.entity;
 
 import jakarta.persistence.*;
 import lombok.*;

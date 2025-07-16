@@ -1,6 +1,6 @@
 package Baemin.News_Deliver.Global.NewsMonitoring.DTO;
 
-import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsItemDTO;
+import Baemin.News_Deliver.Global.News.Batch.dto.NewsItemDTO;
 import lombok.Data;
 
 import java.util.List;

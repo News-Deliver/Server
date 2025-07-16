@@ -1,0 +1,65 @@
+PUT http://localhost:9200/news-index-nori
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "nori_pos_filter": {
+          "type": "nori_part_of_speech",
+          "stoptags": [
+            "E", "IC", "J", "MAG", "MAJ", "MM", "SP", "SSC", "SSO", "SC", "SE",
+            "UNA", "NA", "VSV", "VV", "VA", "VX", "VCP", "VCN", "EC", "ETM", "ETN",
+            "XPN", "XR", "XSA", "XSN", "XSV"
+          ]
+        },
+        "korean_stop_filter": {
+          "type": "stop",
+          "stopwords_path": "stopwords.txt"
+        },
+        "length_filter": {
+          "type": "length",
+          "min": 2
+        }
+      },
+      "analyzer": {
+        "korean_nori": {
+          "tokenizer": "nori_tokenizer",
+          "filter": [
+            "lowercase",
+            "nori_readingform",
+            "nori_pos_filter",
+            "korean_stop_filter",
+            "length_filter"
+          ],
+          "type": "custom"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "title": {
+         "type": "text",
+         "analyzer": "korean_nori",
+         "copy_to": "combinedTokens"
+       },
+       "summary": {
+         "type": "text",
+         "analyzer": "korean_nori",
+         "copy_to": "combinedTokens"
+      },
+      "id": { "type": "keyword" },
+      "sections": { "type": "keyword" },
+      "publisher": { "type": "keyword" },
+      "combinedTokens": {
+        "type": "text",
+        "analyzer": "korean_nori",
+        "fielddata": true
+      },
+      "content_url": { "type": "keyword" },
+      "published_at": {
+        "type": "date",
+        "format": "strict_date_optional_time||yyyy-MM-dd'T'HH:mm:ss"
+      }
+    }
+  }
+}

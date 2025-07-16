@@ -1,34 +1,45 @@
 package Baemin.News_Deliver.Domain.HotTopic.controller;
 
+import Baemin.News_Deliver.Domain.HotTopic.dto.HotTopicResponseDTO;
+import Baemin.News_Deliver.Domain.HotTopic.entity.HotTopic;
 import Baemin.News_Deliver.Domain.HotTopic.service.HotTopicService;
+import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.List;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/hottopic")
+@RequestMapping("/api/hottopic")
 public class HotTopicController {
 
     private final HotTopicService hotTopicService;
 
-    //스케줄러로 처리 할 예정
-    @GetMapping("/savehottopic")
-    public void getTopic() {
-        hotTopicService.getAndSaveHotTopic();
+    //ElasticSearch에서 "어제"의 핫토픽 추출
+    @GetMapping
+    public ResponseEntity<List<HotTopicResponseDTO>> getHotTopicList() {
+        List<HotTopicResponseDTO> hotTopicResponseDTOList = hotTopicService.getHotTopicList();
+        log.info("hotTopicResponseDTOList={}", hotTopicResponseDTOList.size());
+        return ResponseEntity.ok(hotTopicResponseDTOList);
     }
 
-    //Redis 캐시에 올릴 예정
-    @GetMapping("/gethottopic")
-    public void getHotTopic() {
-        try {
-            hotTopicService.logRelatedArticlesForHotTopics();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    @GetMapping("/{keyword}")
+    public ResponseEntity<List<NewsEsDocument>> getNewsList(@PathVariable("keyword") String keyword) throws IOException {
+        List<NewsEsDocument> newsEsDocumentList = hotTopicService.getNewsList(keyword, 20);
+        return ResponseEntity.ok(newsEsDocumentList);
+    }
+
+    //스케줄러로 처리 할 예정
+    // FIXME
+    //ElasticSearch에서 "어제"의 핫토픽 추출 > DB에 저장
+    @GetMapping("/savehottopic")
+    public void saveHotTopic() throws IOException {
+        hotTopicService.getAndSaveHotTopic();
     }
 
 }

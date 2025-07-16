@@ -1,10 +1,9 @@
 package Baemin.News_Deliver.Global.News.Batch.configuration;
 
 import Baemin.News_Deliver.Global.News.Batch.listener.BatchJobCompletionListener;
-import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsItemDTO;
-import Baemin.News_Deliver.Global.News.JPAINSERT.dto.NewsResponseDTO;
-import Baemin.News_Deliver.Global.News.JPAINSERT.entity.News;
-import Baemin.News_Deliver.Global.News.JPAINSERT.repository.NewsRepository;
+import Baemin.News_Deliver.Global.News.Batch.dto.NewsItemDTO;
+import Baemin.News_Deliver.Global.News.Batch.dto.NewsResponseDTO;
+import Baemin.News_Deliver.Global.News.Batch.entity.News;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -33,6 +32,35 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 뉴스 배치 관련 설정 클래스
+ *
+ * <p>이 클래스는 Spring Batch를 이용하여 DeepSearch 뉴스 API로부터
+ * 섹션별 뉴스 데이터를 수집하고, DB에 저장하는 배치 작업을 구성합니다.</p>
+ *
+ * 구성 요소:
+ * <ul>
+ *     <li>Job: {@code newsDataSaveJob}</li>
+ *     <li>Step: {@code newsDataSaveStep}</li>
+ *     <li>Reader: {@code apiReader}</li>
+ *     <li>Processor: {@code newsProcessor}</li>
+ *     <li>Writer: {@code newsWriter}</li>
+ * </ul>
+ *
+ * 주요 흐름:
+ * <ol>
+ *     <li>전날 날짜에 해당하는 뉴스 데이터를 섹션별로 수집</li>
+ *     <li>각 페이지별 데이터를 순차적으로 요청 후, 리스트에 적재</li>
+ *     <li>중복 뉴스는 Listener에서 후처리로 제거</li>
+ * </ol>
+ *
+ * API 요청 구조:
+ * - endpoint: {@code https://api-v2.deepsearch.com/v1/articles/{section}}
+ * - headers: {@code Authorization: {API_KEY}}
+ * - query params: {@code page, page_size, date_from, date_to, order}
+ *
+ * @author 김원중
+ */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
@@ -43,6 +71,14 @@ public class BatchConfig {
     private String apiKey;
     private static final String API_URL = "https://api-v2.deepsearch.com/v1/articles";
 
+    /**
+     * 뉴스 저장 배치 Job 정의
+     *
+     * @param jobRepository Job Repository
+     * @param newsDataSaveStep 뉴스 저장 Step
+     * @param listener 배치 완료 후 리스너
+     * @return Job 인스턴스
+     */
     @Bean
     public Job newsDataSaveJob(JobRepository jobRepository,
                                Step newsDataSaveStep,
@@ -53,6 +89,16 @@ public class BatchConfig {
                 .build();
     }
 
+    /**
+     * 뉴스 저장 Step 정의 (청크 단위 처리)
+     *
+     * @param jobRepository Job Repository
+     * @param transactionManager 트랜잭션 관리자
+     * @param apiReader API Reader (뉴스 리스트)
+     * @param newsProcessor DTO → Entity 변환 Processor
+     * @param newsWriter DB 저장 Writer
+     * @return Step 인스턴스
+     */
     @Bean
     public Step newsDataSaveStep(JobRepository jobRepository,
                                  PlatformTransactionManager transactionManager,
@@ -68,6 +114,14 @@ public class BatchConfig {
                 .build();
     }
 
+    /**
+     * 외부 API Reader
+     *
+     * <p>지정된 섹션과 날짜를 기준으로 뉴스 데이터를 모두 가져와서 ListItemReader로 반환합니다.</p>
+     *
+     * @param section 섹션명 (JobParameter로 전달)
+     * @return ItemReader
+     */
     @StepScope
     @Bean
     public ItemReader<NewsItemDTO> apiReader(@Value("#{jobParameters['section']}") String section) {
@@ -103,7 +157,13 @@ public class BatchConfig {
         return new ListItemReader<>(newsList);
     }
 
-
+    /**
+     * 뉴스 DTO → Entity 변환 Processor
+     *
+     * <p>섹션이 존재하지 않는 뉴스는 {@code null}을 반환하여 skip 처리합니다.</p>
+     *
+     * @return ItemProcessor
+     */
     @Bean
     public ItemProcessor<NewsItemDTO, News> newsProcessor() {
         // 받아온 DTO를 엔티티로 변환하는 과정 (하나씩 처리)
@@ -128,6 +188,14 @@ public class BatchConfig {
         };
     }
 
+    /**
+     * 뉴스 DB 저장용 Writer (JDBC Batch 방식)
+     *
+     * <p>{@code JdbcBatchItemWriter}를 사용하여 한 번에 10,000건의 데이터를 삽입합니다.</p>
+     *
+     * @param dataSource DataSource (DB 연결)
+     * @return ItemWriter
+     */
     @Bean
     public ItemWriter<News> newsWriter(javax.sql.DataSource dataSource) {
         JdbcBatchItemWriter<News> writer = new JdbcBatchItemWriter<>();
@@ -143,6 +211,16 @@ public class BatchConfig {
         return writer;
     }
 
+    /**
+     * API 응답 뉴스 데이터를 리스트에 적재
+     *
+     * @param page 요청할 페이지 번호
+     * @param section 섹션명
+     * @param pageSize 페이지당 데이터 수
+     * @param dateFrom 시작 날짜
+     * @param dateTo 종료 날짜
+     * @param newsList 데이터를 담을 리스트
+     */
     private void getNewsList(int page, String section, int pageSize, String dateFrom, String dateTo, List<NewsItemDTO> newsList) {
         RestTemplate restTemplate = new RestTemplate();
 
@@ -179,6 +257,13 @@ public class BatchConfig {
 
     }
 
+    /**
+     * 총 페이지 수를 가져오는 메서드
+     *
+     * <p>page=1 요청을 통해 해당 조건에 대한 전체 페이지 수를 파악합니다.</p>
+     *
+     * @return 총 페이지 수
+     */
     private int getPage(int page, String section, int pageSize, String dateFrom, String dateTo) {
         RestTemplate restTemplate = new RestTemplate();
 
