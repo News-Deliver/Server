@@ -26,9 +26,8 @@ public class SettingController {
      * @return 설정 리스트
      */
     @GetMapping
-    public ResponseEntity<List<SettingDTO>> getAllSetting() { // 인증 객체어서 userId 뽑아 올 것.
-        // FIXME
-        // TODO
+    public ResponseEntity<List<SettingDTO>> getAllSetting() {
+        //FIXME : 인증 객체어서 userId 뽑아 올 것.
         Long userId = 1L;
         List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
         return ResponseEntity.ok(settings);
@@ -40,6 +39,7 @@ public class SettingController {
      * @param settingDTO 설정 정보
      * @return 생성된 설정 ID
      */
+    //FIXME : 설정이 3개가 넘는지 아닌지 조건 판단할 것.
     @PostMapping
     public ResponseEntity<Long> saveSetting(@RequestBody SettingDTO settingDTO) {
 
