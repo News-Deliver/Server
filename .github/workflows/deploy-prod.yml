@@ -1,8 +1,8 @@
-name: 프로덕션 배포 (main 브랜치만)
+name: 프로덕션 배포 (master 브랜치만)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:  # 수동 실행 가능
     inputs:
       confirm_deployment:
@@ -165,11 +165,11 @@ jobs:
             # 현재 브랜치 확인
             echo "📋 현재 브랜치: $(git branch --show-current)"
           
-            # main 브랜치로 체크아웃 및 풀
-            echo "📥 main에서 최신 코드 가져오는 중..."
+            # master 브랜치로 체크아웃 및 풀
+            echo "📥 master에서 최신 코드 가져오는 중..."
             git fetch origin
-            git checkout main || git checkout -b main origin/main
-            git pull origin main
+            git checkout master || git checkout -b master origin/master
+            git pull origin master
           
             # 환경 변수 파일 확인
             if [ ! -f ".env" ]; then
@@ -241,7 +241,7 @@ jobs:
           echo "## 🚀 프로덕션 배포 요약" >> $GITHUB_STEP_SUMMARY
           echo "- **배포 상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- **환경**: PRODUCTION 🔥" >> $GITHUB_STEP_SUMMARY
-          echo "- **배포된 브랜치**: main" >> $GITHUB_STEP_SUMMARY
+          echo "- **배포된 브랜치**: master" >> $GITHUB_STEP_SUMMARY
           echo "- **배포 시간**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- **커밋**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **프로덕션 URL**: http://${{ secrets.EC2_HOST }}/" >> $GITHUB_STEP_SUMMARY
