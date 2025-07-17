@@ -182,7 +182,8 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-          scp -i ~/.ssh/id_rsa .env ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/opt/news-deliver/
+          # .env 복사 명령 제거
+          # scp -i ~/.ssh/id_rsa .env ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/opt/news-deliver/
 
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
             cd /opt/news-deliver
