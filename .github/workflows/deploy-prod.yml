@@ -1,8 +1,10 @@
-name: 프로덕션 배포 (master 브랜치만)
+name: 프로덕션 배포 (master & feat/git-master)
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - feat/git-master  # ✅ feat/git-master 브랜치 추가
   workflow_dispatch:  # 수동 실행 가능
     inputs:
       confirm_deployment:
@@ -165,6 +167,11 @@ jobs:
           echo "브랜치: ${{ github.ref_name }}"
           echo "커밋: ${{ github.sha }}"
           echo "배포 시간: $(date)"
+          
+          # ✅ feat/git-master 브랜치인 경우 특별 표시
+          if [ "${{ github.ref_name }}" = "feat/git-master" ]; then
+            echo "⚠️  [개발 브랜치 배포] feat/git-master에서 프로덕션 배포 중"
+          fi
 
       - name: SSH 키 설정
         run: |
@@ -221,14 +228,25 @@ jobs:
           
             cd /opt/news-deliver
           
-            # 현재 브랜치 확인
+            # ✅ 현재 브랜치에 따른 체크아웃 로직
             echo "📋 현재 브랜치: $(git branch --show-current)"
+            echo "📥 ${{ github.ref_name }} 브랜치에서 최신 코드 가져오는 중..."
           
-            # master 브랜치로 체크아웃 및 풀
-            echo "📥 master에서 최신 코드 가져오는 중..."
             git fetch origin
-            git checkout master || git checkout -b master origin/master
-            git pull origin master
+          
+            # 브랜치별 체크아웃 처리
+            if [ "${{ github.ref_name }}" = "master" ]; then
+              git checkout master || git checkout -b master origin/master
+              git pull origin master
+              echo "✅ master 브랜치 코드 업데이트 완료"
+            elif [ "${{ github.ref_name }}" = "feat/git-master" ]; then
+              git checkout feat/git-master || git checkout -b feat/git-master origin/feat/git-master
+              git pull origin feat/git-master
+              echo "✅ feat/git-master 브랜치 코드 업데이트 완료"
+            else
+              echo "❌ 지원하지 않는 브랜치: ${{ github.ref_name }}"
+              exit 1
+            fi
           
             # 환경 변수 파일 확인
             if [ ! -f ".env" ]; then
@@ -420,12 +438,18 @@ jobs:
           echo "## 🚀 프로덕션 배포 요약" >> $GITHUB_STEP_SUMMARY
           echo "- **배포 상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- **환경**: PRODUCTION 🔥" >> $GITHUB_STEP_SUMMARY
-          echo "- **배포된 브랜치**: master" >> $GITHUB_STEP_SUMMARY
+          echo "- **배포된 브랜치**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **배포 시간**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- **커밋**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **프로덕션 URL**: http://${{ secrets.EC2_HOST }}/" >> $GITHUB_STEP_SUMMARY
           echo "- **API 문서**: http://${{ secrets.EC2_HOST }}/swagger.html" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # ✅ 브랜치별 메시지 구분
+          if [ "${{ github.ref_name }}" = "feat/git-master" ]; then
+            echo "### ⚠️  개발 브랜치(feat/git-master)에서 프로덕션 배포됨" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           if [ "${{ job.status }}" == "success" ]; then
             echo "### ✅ 프로덕션 배포가 성공적으로 완료되었습니다!" >> $GITHUB_STEP_SUMMARY
           else
