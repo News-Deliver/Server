@@ -2,7 +2,7 @@ name: 프로덕션 배포 (master 브랜치만)
 
 on:
   push:
-    branches: [ master, feat/git-master ]  # feat/git-master 브랜치 추가
+    branches: [ master ]
   workflow_dispatch:  # 수동 실행 가능
     inputs:
       confirm_deployment:
@@ -136,7 +136,7 @@ jobs:
           KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
           KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
           DEEPSEARCH_API_KEY: ${{ secrets.DEEPSEARCH_API_KEY }}
-        run: ./gradlew clean build -x test --no-daemon --stacktrace
+        run: ./gradlew build --no-daemon
 
       - name: 프로덕션 배포 전 테스트 결과 업로드
         uses: actions/upload-artifact@v4
@@ -173,8 +173,47 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
+      # ✅ 환경변수 파일 생성 단계 추가
+      - name: 프로덕션 환경변수 파일 생성
+        run: |
+          cat > .env << EOF
+          # Database Configuration
+          DB_SERVER=mysql
+          DB_PORT=3306
+          DB_USER=root
+          DB_PASS=${{ secrets.PROD_DB_PASS }}
+          
+          # Redis Configuration
+          REDIS_CACHE_HOST=redis-cache
+          REDIS_CACHE_PORT=6379
+          REDIS_SESSION1_HOST=redis-session1
+          REDIS_SESSION1_PORT=6379
+          REDIS_SESSION2_HOST=redis-session2
+          REDIS_SESSION2_PORT=6379
+          
+          # Elasticsearch Configuration
+          ELASTICSEARCH_SERVER=elasticsearch
+          ELASTICSEARCH_PORT=9200
+          
+          # JWT Configuration
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+          
+          # OpenAI Configuration
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          
+          # Kakao OAuth Configuration
+          KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
+          KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
+          
+          # DeepSearch API Configuration
+          DEEPSEARCH_API_KEY=${{ secrets.DEEPSEARCH_API_KEY }}
+          EOF
+
       - name: 프로덕션 서버에 배포
         run: |
+          # 환경변수 파일을 서버로 전송
+          scp -i ~/.ssh/id_rsa .env ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/opt/news-deliver/
+          
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
             echo "🚀 프로덕션 배포 시작: $(date)"
             echo "📍 브랜치: ${{ github.ref_name }}"
@@ -185,11 +224,11 @@ jobs:
             # 현재 브랜치 확인
             echo "📋 현재 브랜치: $(git branch --show-current)"
           
-            # 현재 브랜치에 맞게 체크아웃 및 풀
-            echo "📥 현재 브랜치(${{ github.ref_name }})에서 최신 코드 가져오는 중..."
+            # master 브랜치로 체크아웃 및 풀
+            echo "📥 master에서 최신 코드 가져오는 중..."
             git fetch origin
-            git checkout ${{ github.ref_name }} || git checkout -b ${{ github.ref_name }} origin/${{ github.ref_name }}
-            git pull origin ${{ github.ref_name }}
+            git checkout master || git checkout -b master origin/master
+            git pull origin master
           
             # 환경 변수 파일 확인
             if [ ! -f ".env" ]; then
@@ -197,64 +236,183 @@ jobs:
               exit 1
             fi
           
-            # 기존 컨테이너 중지
-            echo "🛑 기존 컨테이너 중지 중..."
-            docker-compose down || true
+            echo "✅ .env 파일 확인됨"
           
-            # Docker 이미지 정리
-            echo "🧹 오래된 이미지 정리 중..."
-            docker system prune -f
+            # ✅ 기존 컨테이너 완전 정리
+            echo "🛑 기존 서비스 완전 중지 중..."
+            docker-compose down --volumes --remove-orphans || true
           
-            # 새로운 컨테이너 시작
+            # ✅ 좀비 프로세스 정리
+            echo "🧹 좀비 프로세스 정리 중..."
+            docker container prune -f
+            docker volume prune -f
+            docker network prune -f
+            docker image prune -f
+          
+            # ✅ 네트워크 및 포트 확인
+            echo "🔍 포트 사용 상태 확인 중..."
+            netstat -tulpn | grep -E ":(80|8080|3306|6379|6380|6381|9200)" || echo "포트 사용 중인 프로세스 없음"
+          
+            # ✅ 새로운 컨테이너 시작 (더 긴 타임아웃)
             echo "🔄 새 컨테이너 시작 중..."
-            docker-compose up -d --build
+            docker-compose up -d --build --force-recreate
           
-            # 서비스 시작 대기 (프로덕션은 더 오래)
-            echo "⏳ 프로덕션 서비스 시작 대기 중..."
-            sleep 120
+            # ✅ 각 서비스별 개별 헬스체크
+            echo "⏳ 프로덕션 서비스별 헬스체크 시작..."
           
-            # 서비스 상태 확인
-            echo "📊 서비스 상태 확인 중..."
-            docker-compose ps
-          
-            # Spring Boot 헬스체크
-            echo "🔍 프로덕션 Spring Boot 헬스체크 중..."
-            for i in {1..20}; do
-              if curl -f http://localhost:8080/ >/dev/null 2>&1; then
-                echo "✅ 프로덕션 Spring Boot가 정상 작동 중입니다!"
+            # MySQL 헬스체크
+            echo "🔍 MySQL 헬스체크 중..."
+            for i in {1..30}; do
+              if docker-compose exec -T mysql mysqladmin ping -h localhost --silent; then
+                echo "✅ MySQL 준비 완료!"
                 break
               fi
-              echo "⏳ 시도 $i/20: Spring Boot가 아직 준비되지 않았습니다..."
+              echo "⏳ MySQL 대기 중... $i/30"
+              sleep 10
+            done
+          
+            # Redis 헬스체크
+            echo "🔍 Redis 헬스체크 중..."
+            for i in {1..20}; do
+              if docker-compose exec -T redis-cache redis-cli ping | grep -q PONG; then
+                echo "✅ Redis 준비 완료!"
+                break
+              fi
+              echo "⏳ Redis 대기 중... $i/20"
+              sleep 5
+            done
+          
+            # Elasticsearch 헬스체크
+            echo "🔍 Elasticsearch 헬스체크 중..."
+            for i in {1..40}; do
+              if curl -f http://localhost:9200/_cluster/health >/dev/null 2>&1; then
+                echo "✅ Elasticsearch 준비 완료!"
+                break
+              fi
+              echo "⏳ Elasticsearch 대기 중... $i/40"
+              sleep 10
+            done
+          
+            # ✅ Spring Boot 헬스체크 (더 긴 타임아웃)
+            echo "🔍 Spring Boot 헬스체크 중..."
+            for i in {1..60}; do
+              if curl -f http://localhost:8080/ >/dev/null 2>&1; then
+                echo "✅ Spring Boot가 정상 작동 중입니다!"
+                break
+              fi
+              echo "⏳ 시도 $i/60: Spring Boot가 아직 준비되지 않았습니다..."
               sleep 15
             done
           
+            # ✅ 최종 서비스 상태 확인
+            echo "📊 최종 서비스 상태 확인..."
+            docker-compose ps
+          
+            # ✅ 상세 로그 확인
+            echo "📋 Spring Boot 컨테이너 로그 (마지막 50줄):"
+            docker-compose logs --tail=50 springboot || echo "Spring Boot 로그 가져오기 실패"
+          
             echo "🎉 프로덕션 배포 완료: $(date)"
           '
- 
 
+      # ✅ 개선된 외부 헬스체크
       - name: 프로덕션 외부 헬스체크
         run: |
           echo "🔍 프로덕션 외부 헬스체크 중..."
+          
+          # ✅ 더 긴 초기 대기 시간
+          echo "⏳ 초기 안정화 대기 중 (3분)..."
           sleep 180
           
-          # 외부에서 접근 가능한지 확인
+          # ✅ EC2 보안그룹 및 nginx 상태 확인
+          echo "🔍 EC2 인스턴스 기본 연결 테스트..."
+          if ! nc -z ${{ secrets.EC2_HOST }} 80; then
+            echo "❌ EC2 포트 80에 연결할 수 없습니다. 보안그룹 설정을 확인하세요."
+          
+            # SSH로 내부 상태 확인
+            ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
+              echo "🔍 내부 서비스 상태 확인:"
+              echo "=== Docker 컨테이너 상태 ==="
+              docker ps
+              echo "=== 포트 바인딩 상태 ==="
+              netstat -tulpn | grep -E ":(80|8080)"
+              echo "=== nginx 상태 ==="
+              docker-compose logs --tail=20 nginx || echo "nginx 로그 없음"
+              echo "=== Spring Boot 상태 ==="
+              docker-compose logs --tail=20 springboot || echo "Spring Boot 로그 없음"
+            '
+            exit 1
+          fi
+          
+          # ✅ 실제 HTTP 헬스체크
           success=false
-          for i in {1..15}; do
-            if curl -f http://${{ secrets.EC2_HOST }}/ >/dev/null 2>&1; then
-              echo "✅ 프로덕션 외부 헬스체크 통과!"
+          for i in {1..20}; do
+            echo "⏳ 외부 헬스체크 시도 $i/20..."
+          
+            # HTTP 응답 코드 확인
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.EC2_HOST }}/ || echo "000")
+          
+            if [ "$http_code" = "200" ]; then
+              echo "✅ 프로덕션 외부 헬스체크 통과! (HTTP $http_code)"
               echo "🔗 프로덕션 URL: http://${{ secrets.EC2_HOST }}/"
               echo "📋 API 문서: http://${{ secrets.EC2_HOST }}/swagger.html"
               success=true
               break
+            else
+              echo "⚠️  HTTP 응답 코드: $http_code"
+          
+              # 상세 디버그 정보 (5번째 시도마다)
+              if [ $((i % 5)) -eq 0 ]; then
+                echo "🔍 상세 연결 상태 확인 중..."
+                curl -v http://${{ secrets.EC2_HOST }}/ || true
+              fi
             fi
-            echo "⏳ 시도 $i/10: 외부 체크가 아직 준비되지 않았습니다..."
+          
             sleep 30
           done
           
           if [ "$success" = false ]; then
             echo "❌ 프로덕션 헬스체크 실패! 즉시 확인이 필요합니다."
+          
+            # ✅ 실패 시 상세 디버그 정보 수집
+            echo "🔍 실패 원인 분석을 위한 정보 수집 중..."
+            ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
+              echo "=== 시스템 리소스 상태 ==="
+              df -h
+              free -h
+              echo "=== 모든 컨테이너 상태 ==="
+              docker ps -a
+              echo "=== 컨테이너별 로그 (마지막 30줄) ==="
+              for container in $(docker ps -q); do
+                echo "--- $(docker ps --format "table {{.Names}}" | grep -v NAMES | head -1) 로그 ---"
+                docker logs --tail=30 $container 2>&1 || echo "로그 없음"
+              done
+            '
             exit 1
           fi
+
+      # ✅ 배포 후 상세 모니터링
+      - name: 배포 후 상태 모니터링
+        if: success()
+        run: |
+          echo "📊 배포 후 상태 모니터링 (5분간)..."
+          
+          for i in {1..10}; do
+            echo "🔍 모니터링 $i/10..."
+          
+            # HTTP 상태 확인
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.EC2_HOST }}/ || echo "000")
+          
+            if [ "$http_code" = "200" ]; then
+              echo "✅ 시점 $i: 서비스 정상 (HTTP $http_code)"
+            else
+              echo "⚠️  시점 $i: 서비스 이상 (HTTP $http_code)"
+            fi
+          
+            sleep 30
+          done
+          
+          echo "✅ 5분간 모니터링 완료"
 
       - name: 프로덕션 배포 요약
         if: always()
@@ -262,7 +420,7 @@ jobs:
           echo "## 🚀 프로덕션 배포 요약" >> $GITHUB_STEP_SUMMARY
           echo "- **배포 상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- **환경**: PRODUCTION 🔥" >> $GITHUB_STEP_SUMMARY
-          echo "- **배포된 브랜치**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **배포된 브랜치**: master" >> $GITHUB_STEP_SUMMARY
           echo "- **배포 시간**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- **커밋**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **프로덕션 URL**: http://${{ secrets.EC2_HOST }}/" >> $GITHUB_STEP_SUMMARY
