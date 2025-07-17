@@ -44,6 +44,7 @@ public enum ErrorCode {
 
     // Setting 관련
     SETTING_NOT_FOUND("SETTING_ERROR_901", "설정을 찾을 수 없습니다", HttpStatus.NOT_FOUND),
+    SETTING_LIMIT_EXCEEDED("SETTING_ERROR_902", "User has exceeded the maximum number of allowed settings.", HttpStatus.BAD_REQUEST),
     /* HotTopic 예외 : 7xx */
 
 

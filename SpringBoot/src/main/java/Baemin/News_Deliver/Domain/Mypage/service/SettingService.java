@@ -61,14 +61,19 @@ public class SettingService {
     @Transactional
     public ResponseEntity<Long> saveSetting(SettingDTO settingDTO) {
 
+        User user = userRepository.findById(settingDTO.getUserId())
+                .orElseThrow(() -> new SettingException(ErrorCode.USER_NOT_FOUND));
+
+        if (isSettingLimitExceeded(user)) {
+            throw new SettingException(ErrorCode.SETTING_LIMIT_EXCEEDED);
+        }
+
         Setting setting = new Setting();
         setting.setDeliveryTime(settingDTO.getDeliveryTime());
         setting.setStartDate(settingDTO.getStartDate());
         setting.setEndDate(settingDTO.getEndDate());
         setting.setIsDeleted(false);
 
-        User user = userRepository.findById(settingDTO.getUserId())
-                .orElseThrow(() -> new SettingException(ErrorCode.USER_NOT_FOUND));
         setting.setUser(user);
 
         setting = settingRepository.save(setting);
@@ -198,6 +203,15 @@ public class SettingService {
 
         settingKeywordRepository.saveAll(settingKeywords);
     }
+
+    /**
+     * 사용자의 활성중인 설정이 3개가 넘는지 아닌지 검사하는 메서드 (내부 메서드)
+     * */
+    private boolean isSettingLimitExceeded(User user) {
+        //FIXME : 설정값 검사 로직 추가할 것.
+        return false;
+    }
+
 
     /**
      * Setting → SettingDTO 변환 (연관 엔티티 포함)
