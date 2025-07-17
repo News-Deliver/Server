@@ -53,6 +53,12 @@ public class MoreNewsController {
      * @param size 페이지 사이즈
      * @return 페이지 네이션이 적용된 히스토리
      */
+    @Operation(summary = "내 히스토리 조회하기 API",description = "히스토리 리스트를 반환(페이지 네이션 적용)",
+            responses = {
+                    @ApiResponse(responseCode = "201",description = "히스토리가 성공적으로 조회되었습니다."),
+                    @ApiResponse(responseCode = "401",description = "엑세스 토큰 만료"),
+                    @ApiResponse(responseCode = "500",description = "서버 내부 오류 발생")
+            })
     @GetMapping("")
     public ResponseEntity<ApiResponseWrapper<List<GroupedNewsHistoryResponse>>> getNewsHistoryList(
             @RequestParam(defaultValue = "0") int page,
@@ -60,7 +66,7 @@ public class MoreNewsController {
     ) {
         List<GroupedNewsHistoryResponse> groupedList = moreNewsService.getGroupedNewsHistory(page, size);
 
-        return ResponseEntity.ok(new ApiResponseWrapper<>(groupedList, "히스토리 조회 성공"));
+        return ResponseEntity.ok(new ApiResponseWrapper<>(groupedList, "히스토리가 성공적으로 조회되었습니다."));
     }
 
 }
