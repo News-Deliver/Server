@@ -235,11 +235,11 @@ jobs:
       - name: 프로덕션 외부 헬스체크
         run: |
           echo "🔍 프로덕션 외부 헬스체크 중..."
-          sleep 60
+          sleep 180
           
           # 외부에서 접근 가능한지 확인
           success=false
-          for i in {1..10}; do
+          for i in {1..15}; do
             if curl -f http://${{ secrets.EC2_HOST }}/ >/dev/null 2>&1; then
               echo "✅ 프로덕션 외부 헬스체크 통과!"
               echo "🔗 프로덕션 URL: http://${{ secrets.EC2_HOST }}/"
@@ -248,7 +248,7 @@ jobs:
               break
             fi
             echo "⏳ 시도 $i/10: 외부 체크가 아직 준비되지 않았습니다..."
-            sleep 20
+            sleep 30
           done
           
           if [ "$success" = false ]; then
