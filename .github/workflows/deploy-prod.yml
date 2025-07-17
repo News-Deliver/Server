@@ -168,43 +168,189 @@ jobs:
     needs: pre-deploy-test
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 15
+    timeout-minutes: 20
     if: ${{ needs.pre-deploy-test.result == 'success' }}
 
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: SSH 키 설정 및 배포
+      - name: 🚨 프로덕션 배포 확인
+        run: |
+          echo "🚨🚨🚨 프로덕션 환경에 배포를 시작합니다 🚨🚨🚨"
+          echo "브랜치: ${{ github.ref_name }}"
+          echo "커밋: ${{ github.sha }}"
+          echo "배포 시간: $(date)"
+
+      - name: SSH 키 설정
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-          # .env 복사 명령 제거
-          # scp -i ~/.ssh/id_rsa .env ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/opt/news-deliver/
-
+      - name: 프로덕션 서버에 배포
+        run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
+            echo "🚀 프로덕션 배포 시작: $(date)"
+            echo "📍 브랜치: ${{ github.ref_name }}"
+          
             cd /opt/news-deliver
-            git fetch origin
+          
+            # 현재 상태 확인
+            echo "📋 현재 브랜치: $(git branch --show-current || echo "detached")"
+            echo "📋 현재 커밋: $(git rev-parse HEAD || echo "unknown")"
+          
+            # 최신 코드 가져오기
+            echo "📥 최신 코드 가져오는 중..."
+            git fetch origin || { echo "❌ git fetch 실패"; exit 1; }
             git checkout ${{ github.ref_name }} || git checkout -b ${{ github.ref_name }} origin/${{ github.ref_name }}
-            git pull origin ${{ github.ref_name }}
-
-            docker-compose down --remove-orphans || true
+            git pull origin ${{ github.ref_name }} || { echo "❌ git pull 실패"; exit 1; }
+          
+            # 환경 변수 파일 확인
+            if [ ! -f ".env" ]; then
+              echo "❌ .env 파일을 찾을 수 없습니다!"
+              exit 1
+            fi
+            echo "✅ .env 파일 확인됨"
+          
+            # 기존 컨테이너 정리
+            echo "🛑 기존 컨테이너 정리 중..."
+            docker-compose down --remove-orphans --timeout 60 || true
             docker system prune -f || true
-            docker-compose up -d --build --force-recreate
+          
+            # 이미지 빌드 및 컨테이너 시작
+            echo "🔄 새 컨테이너 시작 중..."
+            docker-compose up -d --build --force-recreate --timeout 120
+          
+            # 컨테이너 상태 확인
+            echo "📊 컨테이너 상태:"
+            docker-compose ps
+          
+            echo "🎉 배포 스크립트 완료: $(date)"
           '
 
-      - name: 스마트 헬스체크
+      - name: 서비스 시작 대기
         run: |
-          for i in {1..8}; do
-            http_code=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.EC2_HOST }}/api/auth/status || echo "000")
-            if [ "$http_code" = "200" ]; then
-              echo "✅ 프로덕션 헬스체크 통과"
-              exit 0
+          echo "⏳ 프로덕션 서비스 시작 대기 중..."
+          echo "컨테이너들이 완전히 시작될 때까지 3분 대기합니다..."
+          sleep 180
+
+      - name: 서버 상태 원격 확인
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
+            echo "🔍 서버 내부 상태 확인:"
+          
+            # Docker 컨테이너 상태
+            echo "📊 Docker 컨테이너 상태:"
+            docker-compose ps
+          
+            # Spring Boot 로그 확인 (최근 20줄)
+            echo "📋 Spring Boot 로그 (최근 20줄):"
+            docker-compose logs springboot --tail=20 || echo "Spring Boot 로그를 가져올 수 없습니다"
+          
+            # 포트 확인
+            echo "🔌 포트 사용 상태:"
+            netstat -tulpn | grep :8080 || echo "8080 포트가 사용 중이 아닙니다"
+            netstat -tulpn | grep :80 || echo "80 포트가 사용 중이 아닙니다"
+          
+            # 내부 헬스체크
+            echo "🩺 내부 헬스체크:"
+            for i in {1..5}; do
+              echo "시도 $i/5..."
+              if curl -f http://localhost:8080/api/auth/status 2>/dev/null; then
+                echo "✅ 내부 8080 포트 정상"
+                break
+              else
+                echo "❌ 내부 8080 포트 응답 없음"
+                if [ $i -eq 5 ]; then
+                  echo "🚨 내부 헬스체크 최종 실패"
+                fi
+                sleep 10
+              fi
+            done
+          '
+
+      - name: 외부 헬스체크 (확장)
+        run: |
+          echo "🔍 외부에서 프로덕션 헬스체크 중..."
+          
+          # 다양한 엔드포인트 확인
+          endpoints=(
+            "/"
+            "/api/auth/status" 
+            "/swagger.html"
+          )
+          
+          success=false
+          
+          for attempt in {1..12}; do
+            echo "🔄 시도 $attempt/12 ($(date))"
+          
+            for endpoint in "${endpoints[@]}"; do
+              url="http://${{ secrets.EC2_HOST }}${endpoint}"
+              echo "  📡 테스트: $url"
+          
+              http_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$url" || echo "000")
+              echo "  📊 응답 코드: $http_code"
+          
+              if [ "$http_code" = "200" ] || [ "$http_code" = "302" ]; then
+                echo "  ✅ $endpoint 응답 성공"
+                success=true
+                break 2
+              else
+                echo "  ❌ $endpoint 응답 실패 (코드: $http_code)"
+              fi
+            done
+          
+            if [ $attempt -lt 12 ]; then
+              echo "  ⏳ 20초 대기 후 재시도..."
+              sleep 20
             fi
-            sleep 20
           done
-          echo "❌ 프로덕션 헬스체크 실패"
-          exit 1
+          
+          if [ "$success" = true ]; then
+            echo "🎉 외부 헬스체크 성공!"
+            echo "🔗 프로덕션 URL: http://${{ secrets.EC2_HOST }}/"
+            echo "📋 API 문서: http://${{ secrets.EC2_HOST }}/swagger.html"
+          else
+            echo "💥 외부 헬스체크 실패!"
+            echo "🚨 수동으로 서버 상태를 확인해주세요."
+          
+            # 실패 시 추가 디버깅 정보
+            echo "🔍 DNS 해석 확인:"
+            nslookup ${{ secrets.EC2_HOST }} || echo "DNS 해석 실패"
+          
+            echo "🔍 ping 테스트:"
+            ping -c 3 ${{ secrets.EC2_HOST }} || echo "ping 실패"
+          
+            echo "🔍 포트 연결 테스트:"
+            nc -zv ${{ secrets.EC2_HOST }} 80 || echo "80번 포트 연결 실패"
+          
+            exit 1
+          fi
+
+      - name: 프로덕션 배포 요약
+        if: always()
+        run: |
+          echo "## 🚀 프로덕션 배포 요약" >> $GITHUB_STEP_SUMMARY
+          echo "- **배포 상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **환경**: PRODUCTION 🔥" >> $GITHUB_STEP_SUMMARY
+          echo "- **배포된 브랜치**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **배포 시간**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **커밋**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **프로덕션 URL**: http://${{ secrets.EC2_HOST }}/" >> $GITHUB_STEP_SUMMARY
+          echo "- **API 문서**: http://${{ secrets.EC2_HOST }}/swagger.html" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "### ✅ 프로덕션 배포가 성공적으로 완료되었습니다!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ 프로덕션 배포가 실패했습니다. 수동 확인이 필요합니다!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "#### 🔍 문제 해결 단계:" >> $GITHUB_STEP_SUMMARY
+            echo "1. EC2 서버에 SSH 접속" >> $GITHUB_STEP_SUMMARY
+            echo "2. \`cd /opt/news-deliver\`" >> $GITHUB_STEP_SUMMARY
+            echo "3. \`docker-compose logs\` 로 로그 확인" >> $GITHUB_STEP_SUMMARY
+            echo "4. \`docker-compose ps\` 로 컨테이너 상태 확인" >> $GITHUB_STEP_SUMMARY
+            echo "5. 필요시 \`docker-compose restart\` 실행" >> $GITHUB_STEP_SUMMARY
+          fi
