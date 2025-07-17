@@ -261,4 +261,8 @@ public class SettingService {
                         .toList())
                 .build();
     }
+
+    public List<Setting> getAllSettings() {
+        return settingRepository.findAll();
+    }
 }

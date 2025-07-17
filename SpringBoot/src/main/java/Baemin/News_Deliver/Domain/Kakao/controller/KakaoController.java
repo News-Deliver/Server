@@ -91,10 +91,4 @@ public class KakaoController {
 
         return ResponseEntity.ok(newsSearchService.searchNews(keyword, blockKeyword));
     }
-
-    @GetMapping("/getcron")
-    public ResponseEntity getcron() {
-        Long userId = 1L;
-        return ResponseEntity.ok(kakaoSchedulerService.getCron(userId));
-    }
 }

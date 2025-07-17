@@ -5,6 +5,7 @@ import Baemin.News_Deliver.Domain.Mypage.Repository.SettingRepository;
 import Baemin.News_Deliver.Domain.Mypage.service.SettingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -20,6 +21,11 @@ import java.util.stream.Collectors;
 public class KakaoSchedulerService {
 
     private final SettingService settingService;
+
+    //userId 파라미터로 받아, Cron반환해주는 코드
+    public ResponseEntity getcron(Long userId) {
+        return ResponseEntity.ok(getCron(userId));
+    }
 
     //1(월)~7(일)로 매핑
     private static final Map<Integer, String> DAY_MAP = Map.of(

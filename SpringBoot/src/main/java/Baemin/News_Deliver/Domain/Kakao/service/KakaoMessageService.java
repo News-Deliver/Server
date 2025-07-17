@@ -168,8 +168,16 @@ public class KakaoMessageService {
         boolean saved = false;
 
         for (NewsEsDocument newsDoc : newsList) {
+//            News newsitem = newsRepository.findById(Long.parseLong(newsDoc.getId()))
+//                    .orElseThrow(() -> new RuntimeException("뉴스가 존재하지 않습니다: " + newsDoc.getId()));
+
+            /* DB와 ES 동기화 되어있지 않을 시, 잡는 예외 */
             News newsitem = newsRepository.findById(Long.parseLong(newsDoc.getId()))
-                    .orElseThrow(() -> new RuntimeException("뉴스가 존재하지 않습니다: " + newsDoc.getId()));
+                    .orElse(null);
+            if (newsitem == null) {
+                log.warn("DB에 존재하지 않는 뉴스입니다. id={}", newsDoc.getId());
+                continue; // 이 뉴스는 히스토리 저장 생략
+            }
 
             for (SettingDTO settingDTO : settings) {
                 Setting setting = settingRepository.findById(settingDTO.getId())
