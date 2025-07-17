@@ -63,13 +63,12 @@ jobs:
       - name: 테스트용 환경설정 파일 생성
         working-directory: ./SpringBoot
         run: |
-          # 테스트용 application-test.properties 생성
+          # 테스트용 application-test.properties 생성 (spring.profiles.active 제거)
           cat > src/main/resources/application-test.properties << EOF
           spring.application.name=News-Deliver
           spring.main.allow-bean-definition-overriding=true
           
-          # Profile Active
-          spring.profiles.active=test
+          # ❌ 이 줄 제거: spring.profiles.active=test
           
           # DB Connection
           spring.datasource.url=jdbc:mysql://localhost:3306/backendDB?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
@@ -138,7 +137,7 @@ jobs:
       - name: 테스트 실행
         working-directory: ./SpringBoot
         env:
-          SPRING_PROFILES_ACTIVE: test
+          SPRING_PROFILES_ACTIVE: test  # 환경변수로 프로파일 설정
         run: |
           echo "🔍 테스트 실행 전 환경 확인"
           echo "SPRING_PROFILES_ACTIVE: $SPRING_PROFILES_ACTIVE"
