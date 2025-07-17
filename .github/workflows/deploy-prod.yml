@@ -67,6 +67,9 @@ jobs:
       - name: gradlew 실행 권한 부여
         run: chmod +x SpringBoot/gradlew
 
+      - name: redis-cli 설치
+        run: sudo apt-get update && sudo apt-get install -y redis-tools
+
       - name: 서비스 준비 완료 대기
         run: |
           echo "⏳ 테스트 환경 준비 중..."
