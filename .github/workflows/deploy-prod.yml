@@ -17,20 +17,11 @@ on:
           - 'yes'
 
 jobs:
-  # 1단계: 배포 전 테스트
   pre-deploy-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: ci_test_password
-          MYSQL_DATABASE: backendDB
-        ports:
-          - 3306:3306
-
       redis-cache:
         image: redis:7.2
         ports:
@@ -93,7 +84,6 @@ jobs:
             echo "❌ $service_name 준비 실패"
             return 1
           }
-          wait_for_service "MySQL" "mysqladmin ping -h127.0.0.1 -P3306 -uroot -pci_test_password --silent" 15 &
           wait_for_service "Redis" "redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG" 10 &
           wait_for_service "Elasticsearch" "curl -f http://localhost:9200/_cluster/health" 20 &
           wait
@@ -104,15 +94,61 @@ jobs:
         run: |
           cat > src/main/resources/application-test.properties << 'EOF'
           spring.application.name=News-Deliver
-          …
+          spring.main.allow-bean-definition-overriding=true
+
+          # DB: H2로 설정
+          spring.datasource.url=jdbc:h2:mem:testdb
+          spring.datasource.driver-class-name=org.h2.Driver
+          spring.datasource.username=sa
+          spring.datasource.password=
+          spring.jpa.hibernate.ddl-auto=create-drop
+          spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+
+          # Redis
+          redis.cache.host=localhost
+          redis.cache.port=6379
+          redis.session1.host=localhost
+          redis.session1.port=6380
+          redis.session2.host=localhost
+          redis.session2.port=6381
+
+          # Elasticsearch
+          spring.elasticsearch.uris=http://localhost:9200
+
+          # JWT
+          jwt.secretKey=test-secret-key-for-ci
+          jwt.accessTokenExpirationTime=1800000
+          jwt.refreshTokenExpirationTime=86400000
+
+          # OAuth2
+          spring.security.oauth2.client.registration.kakao.client-id=test-kakao-client-id
+          spring.security.oauth2.client.registration.kakao.client-secret=test-kakao-client-secret
+          spring.security.oauth2.client.registration.kakao.client-authentication-method=client_secret_post
+          spring.security.oauth2.client.registration.kakao.redirect-uri=http://localhost/api/login/oauth2/code/kakao
+          spring.security.oauth2.client.registration.kakao.authorization-grant-type=authorization_code
+          spring.security.oauth2.client.provider.kakao.authorization-uri=https://kauth.kakao.com/oauth/authorize
+          spring.security.oauth2.client.provider.kakao.token-uri=https://kauth.kakao.com/oauth/token
+          spring.security.oauth2.client.provider.kakao.user-info-uri=https://kapi.kakao.com/v2/user/me
+          spring.security.oauth2.client.provider.kakao.user-name-attribute=id
+
+          # Spring AI
+          spring.ai.openai.api-key=test-openai-api-key
+          spring.ai.openai.chat.options.model=gpt-3.5-turbo
+
+          # DeepSearch API
+          deepsearch.api.key=test-deepsearch-api-key
+
+          spring.batch.job.enabled=false
+
+          spring.jackson.time-zone=Asia/Seoul
+          server.forward-headers-strategy=framework
           EOF
 
-      - name: 🚨 프로덕션 배포 전 전체 테스트
+      - name: 🚨 프로덕션 배포 전 테스트
         working-directory: ./SpringBoot
         env:
           SPRING_PROFILES_ACTIVE: test
         run: |
-          echo "🚀 테스트 시작"
           ./gradlew clean build --no-daemon --parallel --build-cache
 
       - name: 테스트 결과 업로드
@@ -125,7 +161,6 @@ jobs:
             SpringBoot/build/test-results/
           retention-days: 7
 
-  # 2단계: 실제 프로덕션 배포
   deploy-production:
     needs: pre-deploy-test
     runs-on: ubuntu-latest
@@ -137,46 +172,35 @@ jobs:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: 🚨 프로덕션 배포 확인
-        run: |
-          echo "🚨🚨🚨 프로덕션 환경에 배포를 시작합니다 🚨🚨🚨"
-          …
-
-      - name: SSH 키 설정
+      - name: SSH 키 설정 및 배포
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: 프로덕션 환경변수 파일 생성
-        run: |
-          cat > .env << 'EOF'
-          …
-          EOF
-
-      - name: 프로덕션 서버에 배포
-        run: |
           scp -i ~/.ssh/id_rsa .env ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/opt/news-deliver/
+
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
-            …
+            cd /opt/news-deliver
+            git fetch origin
+            git checkout ${{ github.ref_name }} || git checkout -b ${{ github.ref_name }} origin/${{ github.ref_name }}
+            git pull origin ${{ github.ref_name }}
+
+            docker-compose down --remove-orphans || true
+            docker system prune -f || true
+            docker-compose up -d --build --force-recreate
           '
 
       - name: 스마트 헬스체크
         run: |
-          echo "🔍 프로덕션 헬스체크 중..."
-          …
-          # /api/auth/status 엔드포인트로 반복 체크
-          …
-
-      - name: 배포 후 간단한 모니터링
-        if: success()
-        run: |
-          echo "📊 배포 후 상태 모니터링 (1분간)..."
-          …
-
-      - name: 배포 완료 요약
-        if: always()
-        run: |
-          echo "## 🚀 프로덕션 배포 요약" >> $GITHUB_STEP_SUMMARY
-          …
+          for i in {1..8}; do
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.EC2_HOST }}/api/auth/status || echo "000")
+            if [ "$http_code" = "200" ]; then
+              echo "✅ 프로덕션 헬스체크 통과"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "❌ 프로덕션 헬스체크 실패"
+          exit 1
