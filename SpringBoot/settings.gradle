@@ -1,1 +1,3 @@
 rootProject.name = 'News-Deliver'
+include 'SpringBoot'
+project(':SpringBoot').projectDir = file('SpringBoot')

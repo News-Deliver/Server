@@ -1,0 +1,5 @@
+docker exec -it elasticsearch bin/elasticsearch-plugin install analysis-nori
+
+도커에 elasticsearch가 실행 중일 때 nori를 설치할 것.
+
+이후 elasticsearch 재시작하고 index를 elasticsearch에 생성할 것
