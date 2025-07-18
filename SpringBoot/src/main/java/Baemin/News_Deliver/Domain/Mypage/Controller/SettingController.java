@@ -72,7 +72,6 @@ public class SettingController {
      * @param authentication 인증 객체 (JWT 토큰에서 추출)
      * @return 생성된 설정 ID
      */
-    //FIXME : 설정이 3개가 넘는지 아닌지 조건 판단할 것.
     @PostMapping
     @Operation(summary = "뉴스 설정 저장", description = "새로운 뉴스 배달 설정을 저장합니다.")
     @SecurityRequirement(name = "Bearer Authentication")
@@ -92,7 +91,8 @@ public class SettingController {
             Long userId = authService.findByKakaoId(kakaoId).getId();
             settingDTO.setUserId(userId);
 
-            return settingService.saveSetting(settingDTO);
+            Long settingId = settingService.saveSetting(settingDTO);
+            return ResponseEntity.ok(settingId);
 
         } catch (Exception e) {
             log.error("설정 저장 실패: kakaoId={}, error={}",
@@ -128,7 +128,8 @@ public class SettingController {
             Long userId = authService.findByKakaoId(kakaoId).getId();
             settingDTO.setUserId(userId);
 
-            return settingService.updateSetting(settingDTO);
+            settingService.updateSetting(settingDTO);
+            return ResponseEntity.noContent().build();
 
         } catch (Exception e) {
             log.error("설정 수정 실패: kakaoId={}, error={}",
@@ -155,19 +156,12 @@ public class SettingController {
     })
     public ResponseEntity<Void> deleteSetting(@PathVariable("id") Long id,
                                               Authentication authentication) {
-        try {
-            // 인증 객체에서 카카오 ID 추출
-            String kakaoId = authentication.getName();
 
-            // 카카오 ID로 사용자 조회 (인증 실패 예외 처리)
-            Long userId = authService.findByKakaoId(kakaoId).getId();
+        String kakaoId = authentication.getName();
+        Long userId = authService.findByKakaoId(kakaoId).getId();
 
-            return settingService.deleteSetting(id, userId);
-
-        } catch (Exception e) {
-            log.error("설정 삭제 실패: kakaoId={}, error={}",
-                    authentication.getName(), e.getMessage());
-            throw new SettingException(ErrorCode.SETTING_DELETE_FAILED);
-        }
+        settingService.deleteSetting(id, userId);
+        return ResponseEntity.noContent().build();
     }
+
 }

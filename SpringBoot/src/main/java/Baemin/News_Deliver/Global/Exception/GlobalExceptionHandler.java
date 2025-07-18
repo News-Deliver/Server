@@ -9,8 +9,10 @@ import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @ControllerAdvice
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
     // 인증&인가 시스템 예외
@@ -34,18 +36,22 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, ex.getErrorcode().getHttpStatus());
     }
 
-    // Mypage 도메인 예외
-    @ExceptionHandler(SettingException.class)
-    public ResponseEntity<ApiResponseWrapper<String>> mypageExceptions(SettingException ex) {
-        ApiResponseWrapper<String> response = new ApiResponseWrapper<>(ex.getErrorcode().getErrorCode(),ex.getErrorcode().getMessage());
-        return new ResponseEntity<>(response, ex.getErrorcode().getHttpStatus());
-    }
-
     // SubServices 도메인 예외
     @ExceptionHandler(SubServicesException.class)
     public ResponseEntity<ApiResponseWrapper<String>> subServicesExceptions(SubServicesException ex) {
         ApiResponseWrapper<String> response = new ApiResponseWrapper<>(ex.getErrorcode().getErrorCode(),ex.getErrorcode().getMessage());
         return new ResponseEntity<>(response, ex.getErrorcode().getHttpStatus());
     }
+
+    // Setting 도메인 예외
+    @ExceptionHandler(SettingException.class)
+    public ResponseEntity<ApiResponseWrapper<String>> mypageExceptions(SettingException ex) {
+        ApiResponseWrapper<String> response = new ApiResponseWrapper<>(
+                ex.getErrorcode().getErrorCode(),
+                ex.getErrorcode().getMessage()
+        );
+        return new ResponseEntity<>(response, ex.getErrorcode().getHttpStatus());
+    }
+
 
 }
