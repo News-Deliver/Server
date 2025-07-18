@@ -50,12 +50,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      *
      * 인증 실패 시에도 요청을 차단하지 않고 다음 필터로 전달하여,
      * 인증이 필요하지 않은 엔드포인트는 정상적으로 처리될 수 있도록 합니다.
-     *
-     * @param request HTTP 요청 객체
-     * @param response HTTP 응답 객체
-     * @param filterChain 다음 필터를 호출하기 위한 필터 체인
-     * @throws ServletException 필터 처리 중 서블릿 예외가 발생한 경우
-     * @throws IOException 입출력 예외가 발생한 경우
      */
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -88,12 +82,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 6. SecurityContext에 인증 정보 저장
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                log.debug("JWT 인증 성공: kakaoId = {}", kakaoId);
+                log.debug("JWT 인증 성공: kakaoId = {}, URI = {}", kakaoId, request.getRequestURI());
             }
 
         } catch (Exception e) {
-            log.error("JWT 인증 중 오류 발생: {}", e.getMessage());
+            log.error("JWT 인증 중 오류 발생: URI = {}, error = {}", request.getRequestURI(), e.getMessage());
             SecurityContextHolder.clearContext();
+
+            // 인증 실패해도 요청은 계속 진행 (SecurityConfig에서 권한 체크)
         }
 
         // 7. 다음 필터로 요청 전달
@@ -127,10 +123,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * 이를 통해 불필요한 인증 처리를 방지하고 성능을 개선합니다.
      *
      * 필터 제외 대상:
-     * - 인증 관련 API (/api/auth/*)
      * - OAuth2 로그인 경로 (/login/oauth2/*, /oauth2/*)
      * - 메인 페이지 (/)
      * - 정적 리소스 (/css/*, /js/*, /images/*)
+     * - Swagger 문서 (/swagger-ui/*, /v3/api-docs/*)
+     * - 헬스체크 (/actuator/health)
+     * - 공개 API (로그인 상태 체크, HotTopic 조회 등)
      *
      * @param request 필터 적용 여부를 확인할 HTTP 요청 객체
      * @return 필터 제외 여부 (true: 제외, false: 적용)
@@ -139,12 +137,47 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
 
-        return path.startsWith("/api/auth/")
-                || path.startsWith("/login/oauth2/")
-                || path.startsWith("/oauth2/")
-                || path.equals("/")
-                || path.startsWith("/css/")
-                || path.startsWith("/js/")
-                || path.startsWith("/images/");
+        // OAuth2 관련 경로 제외
+        if (path.startsWith("/login/oauth2/") || path.startsWith("/oauth2/")) {
+            return true;
+        }
+
+        // 정적 리소스 제외
+        if (path.equals("/") ||
+                path.startsWith("/css/") ||
+                path.startsWith("/js/") ||
+                path.startsWith("/images/") ||
+                path.equals("/favicon.ico")) {
+            return true;
+        }
+
+        // Swagger 관련 제외
+        if (path.startsWith("/swagger-ui/") ||
+                path.startsWith("/v3/api-docs/") ||
+                path.startsWith("/api-docs/") ||
+                path.equals("/swagger.html")) {
+            return true;
+        }
+
+        // 헬스체크 제외
+        if (path.equals("/actuator/health")) {
+            return true;
+        }
+
+        // 공개 API 제외
+        if (path.equals("/api/auth/status") ||
+                path.startsWith("/api/hottopic/")) {
+            return true;
+        }
+
+        // 기타 공개 테스트 엔드포인트
+        if (path.equals("/run-batch") ||
+                path.startsWith("/elasticsearch/") ||
+                path.startsWith("/monitoring/test/") ||
+                path.startsWith("/kakao/")) {
+            return true;
+        }
+
+        return false;
     }
 }
