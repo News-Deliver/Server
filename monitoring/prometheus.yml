@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'springboot'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - 'springboot:8080'
+
+#  - job_name: 'mysql'
+#    static_configs:
+#      - targets: ['mysql-exporter:9104']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  - job_name: 'redis-session1'
+    static_configs:
+      - targets: [ 'redis-session1-exporter:9121' ]
+
+  - job_name: 'redis-session2'
+    static_configs:
+      - targets: [ 'redis-session2-exporter:9121' ]

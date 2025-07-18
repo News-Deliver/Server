@@ -38,16 +38,19 @@ public class BatchJobCompletionListener implements JobExecutionListener {
         if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
             String sql = """
                 DELETE FROM news
-                WHERE id IN (
-                    SELECT id FROM (
-                        SELECT id,
-                               ROW_NUMBER() OVER (PARTITION BY title, publisher ORDER BY id) AS rn
-                        FROM news
-                        WHERE DATE(published_at) = CURDATE() - INTERVAL 1 DAY
-                    ) t
-                    WHERE t.rn > 1
-                );
-                
+                    WHERE (
+                        id IN (
+                            SELECT id FROM (
+                                SELECT id,
+                                       ROW_NUMBER() OVER (PARTITION BY title, publisher ORDER BY id) AS rn
+                                FROM news
+                                WHERE published_at >= CURDATE() - INTERVAL 1 DAY
+                                  AND published_at < CURDATE()
+                            ) t
+                            WHERE t.rn > 1
+                        )
+                        OR title LIKE '%[속보]%'
+                    );
                 """;
 
             int deleted = jdbcTemplate.update(sql);
