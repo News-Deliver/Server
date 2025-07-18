@@ -5,14 +5,17 @@ import Baemin.News_Deliver.Domain.HotTopic.entity.HotTopic;
 import Baemin.News_Deliver.Domain.HotTopic.repository.HotTopicRepository;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.News.ElasticSearch.service.NewsEsService;
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -39,12 +42,23 @@ import java.util.List;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class HotTopicService {
 
-    private final ElasticsearchClient elasticsearchClient;
     private final HotTopicRepository hotTopicRepository;
     private final NewsEsService elasticSearchService;
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    public HotTopicService(
+            HotTopicRepository hotTopicRepository,
+            NewsEsService elasticSearchService,
+            @Qualifier("redisCacheTemplate") RedisTemplate<String, Object> redisTemplate
+    ) {
+        this.hotTopicRepository = hotTopicRepository;
+        this.elasticSearchService = elasticSearchService;
+        this.redisTemplate = redisTemplate;
+    }
+
+    private static final String CACHE_PREFIX = "keyword:";
 
     /**
      * DB에서 "어제" 저장된 핫토픽 상위 10개 조회 후 DTO로 반환
@@ -55,11 +69,22 @@ public class HotTopicService {
      * @return 어제의 핫토픽 리스트 (최대 10개)
      */
     public List<HotTopicResponseDTO> getHotTopicList() {
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        LocalDateTime startOfYesterday = yesterday.atStartOfDay(); // 어제 00:00:00
-        LocalDateTime endOfYesterday = yesterday.atTime(LocalTime.MAX); // 어제 23:59:59.999999999
+        long start = System.nanoTime();
+        String cacheKey = "hottopic:daily";
 
-        return hotTopicRepository.findTop10ByTopicDateBetweenOrderByTopicRankAsc(startOfYesterday, endOfYesterday).stream()
+        List<HotTopicResponseDTO> cached = (List<HotTopicResponseDTO>) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            long end = System.nanoTime();
+            log.info("✅ 핫토픽 캐시에서 가져옴 ({} ms)", (end - start) / 1_000_000);
+            return cached;
+        }
+
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        LocalDateTime startOfYesterday = yesterday.atStartOfDay();
+        LocalDateTime endOfYesterday = yesterday.atTime(LocalTime.MAX);
+
+        List<HotTopicResponseDTO> result = hotTopicRepository.findTop10ByTopicDateBetweenOrderByTopicRankAsc(startOfYesterday, endOfYesterday)
+                .stream()
                 .map(entity -> HotTopicResponseDTO.builder()
                         .topicRank(entity.getTopicRank())
                         .keyword(entity.getKeyword())
@@ -67,6 +92,17 @@ public class HotTopicService {
                         .topicDate(entity.getTopicDate())
                         .build())
                 .toList();
+
+        long end = System.nanoTime();
+        log.info("📦 핫토픽 DB 조회 & 캐싱 완료 ({} ms)", (end - start) / 1_000_000);
+
+        long ttlSeconds = Duration.between(
+                LocalDateTime.now(),
+                LocalDate.now().plusDays(1).atStartOfDay()
+        ).getSeconds();
+
+        redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(ttlSeconds));
+        return result;
     }
 
     /**
@@ -116,6 +152,26 @@ public class HotTopicService {
      * @throws IOException Elasticsearch 통신 실패 시
      */
     public List<NewsEsDocument> getNewsList(String keyword, int size) throws IOException {
-        return elasticSearchService.searchByKeyword(keyword, size);
+        long start = System.nanoTime();
+        String cacheKey = CACHE_PREFIX + keyword;
+
+        List<NewsEsDocument> cached = (List<NewsEsDocument>) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            long end = System.nanoTime();
+            log.info("✅ 캐시에서 가져옴: {} ({} ms)", keyword, (end - start) / 1_000_000);
+            return cached;
+        }
+
+        List<NewsEsDocument> result = elasticSearchService.searchByKeyword(keyword, size);
+        long end = System.nanoTime();
+        log.info("📦 ES 조회 & 캐싱: {} 완료 ({} ms)", keyword, (end - start) / 1_000_000);
+
+        long ttlSeconds = Duration.between(
+                LocalDateTime.now(),
+                LocalDate.now().plusDays(1).atStartOfDay()
+        ).getSeconds();
+
+        redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(ttlSeconds));
+        return result;
     }
 }

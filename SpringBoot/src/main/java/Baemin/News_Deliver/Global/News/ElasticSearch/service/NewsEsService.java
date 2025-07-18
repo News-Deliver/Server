@@ -94,9 +94,11 @@ public class NewsEsService {
      */
     private List<NewsItemDTO> loadNewsFromDB(String section) {
         String sql = """
-            SELECT * FROM news
-                WHERE DATE(published_at) = CURDATE() - INTERVAL 1 DAY
-                AND sections = ?
+            SELECT *
+            FROM news
+            WHERE published_at >= CURDATE() - INTERVAL 1 DAY
+              AND published_at < CURDATE()
+              AND sections = ?
                 """;
 
         return jdbcTemplate.query(sql, new Object[]{section}, (rs, rowNum) -> new NewsItemDTO(
