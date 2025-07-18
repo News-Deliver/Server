@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: springboot
     environment:
+      - TZ=Asia/Seoul
       - SPRING_PROFILES_ACTIVE=dev
       - DB_SERVER=${DB_SERVER}
       - DB_PORT=${DB_PORT}
@@ -26,6 +27,9 @@ services:
       - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT}
     ports:
       - "80:8080"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -42,10 +46,12 @@ services:
     image: mysql:8.0
     container_name: mysql
     environment:
+      - TZ=Asia/Seoul
       - MYSQL_ROOT_PASSWORD=${DB_PASS}
       - MYSQL_DATABASE=backendDB
       #- MYSQL_USER=${DB_USER}
       #- MYSQL_PASSWORD=${DB_PASS}
+    command: ["mysqld", "--default-time-zone=+09:00"]
     ports:
       - "3306:3306"
     healthcheck:
@@ -55,14 +61,21 @@ services:
       retries: 5
     volumes:
       - mysql-data:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - backend
 
   redis-cache:
     image: redis:7.2
     container_name: redis-cache
+    environment:
+      - TZ=Asia/Seoul
     ports:
       - "6379:6379"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - backend
 
@@ -70,11 +83,15 @@ services:
     image: redis:7.2
     container_name: redis-session1
     command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      - TZ=Asia/Seoul
     ports:
       - "6380:6379"
     volumes:
       - redis-session1-data:/data
       - ./redis/redis-session1.conf:/usr/local/etc/redis/redis.conf
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - backend
 
@@ -82,11 +99,15 @@ services:
     image: redis:7.2
     container_name: redis-session2
     command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      - TZ=Asia/Seoul
     ports:
       - "6381:6379"
     volumes:
       - redis-session2-data:/data
       - ./redis/redis-session2.conf:/usr/local/etc/redis/redis.conf
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - backend
 
@@ -94,6 +115,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     container_name: elasticsearch
     environment:
+      - TZ=Asia/Seoul
       - discovery.type=single-node
       - xpack.security.enabled=false
       - xpack.security.transport.ssl.enabled=false
@@ -106,6 +128,8 @@ services:
     volumes:
       - ./ElasticSearch/stopwords.txt:/usr/share/elasticsearch/config/stopwords.txt
       - es-data:/usr/share/elasticsearch/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
 #  prometheus:
 #    image: prom/prometheus:latest
