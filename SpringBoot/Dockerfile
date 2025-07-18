@@ -19,6 +19,11 @@ RUN gradle clean build -x test
 
 # --- 2단계: 실행 ---
 FROM amazoncorretto:17-alpine
+
+# 타임존 추가
+RUN apk add --no-cache tzdata && cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && echo "Asia/Seoul" > /etc/timezone && apk del tzdata
+ENV TZ=Asia/Seoul
+
 WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 # 환경 변수는 docker-compose에서 주입
