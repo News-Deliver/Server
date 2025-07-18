@@ -9,6 +9,9 @@ import Baemin.News_Deliver.Domain.Kakao.service.KakaoSchedulerService;
 import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -17,10 +20,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 카카오 메시지 및 뉴스 관련 API 컨트롤러
+ */
 @RestController
 @RequiredArgsConstructor
 @Slf4j
 @RequestMapping("/kakao")
+@Tag(name = "Kakao API", description = "카카오톡 메시지 및 뉴스 검색 관련 API")
 public class KakaoController {
 
     private final KakaoMessageService kakaoMessageService;
@@ -28,24 +35,29 @@ public class KakaoController {
     private final KakaoSchedulerService kakaoSchedulerService;
     private final AuthRepository authRepository;
 
-
-    //스케쥴러를 통한 메세지 전송코드
-    //@GetMapping
-
     /**
-     * 카카오톡 나에게 보내기 메시지 전송 메서드
+     * 모든 유저에게 카카오톡 메시지를 전송하는 API
+     *
+     * @return 메시지 전송 결과 응답
      */
+    @Operation(
+            summary = "카카오톡 메시지 전송",
+            description = "전체 유저의 카카오 리프레시 토큰을 기준으로 카카오톡 메시지를 전송합니다. 실패한 토큰은 두 번까지 재시도합니다.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "모든 유저에게 메시지 전송 성공"),
+                    @ApiResponse(responseCode = "500", description = "카카오 메시지 전송 실패 (최종 실패 토큰 존재)")
+            }
+    )
     @GetMapping("/send-message")
     public ResponseEntity<ApiResponseWrapper<String>> sendMessage() {
 
-        //전체 유저의 정보를 받아, RefreshToken 가져옴.
+        // 전체 유저의 정보를 받아, RefreshToken 가져옴.
         List<Auth> allUsers = authRepository.findAll();
         List<String> allUsersRefreshToken = allUsers.stream()
                 .map(Auth::getKakaoRefreshToken)
                 .toList();
 
-        log.info("유저 RefreshToken 확인" + allUsersRefreshToken);
-
+        log.info("유저 RefreshToken 확인: {}", allUsersRefreshToken);
 
         // 1차 전송 실패시 저장되는 토큰
         List<String> failedTokens = new ArrayList<>();
@@ -53,9 +65,7 @@ public class KakaoController {
             try {
                 Auth auth = authRepository.findByKakaoRefreshToken(token);
                 Long userId = auth.getUser().getId();
-
-                log.info("유저 정보 확인 코드 {}", userId);
-
+                log.info("유저 정보 확인: {}", userId);
                 kakaoMessageService.sendKakaoMessage(token, userId);
             } catch (KakaoException e) {
                 failedTokens.add(token);
@@ -75,15 +85,22 @@ public class KakaoController {
         }
 
         if (!finalFailedTokens.isEmpty()) {
-            log.error("카카오 메시지 전송 실패 토큰 : {}", finalFailedTokens);
+            log.error("카카오 메시지 전송 실패 토큰: {}", finalFailedTokens);
             throw new KakaoException(ErrorCode.MESSAGE_SEND_FAILED);
         }
 
         return ResponseEntity.ok(new ApiResponseWrapper<>("SUCCESS", "모든 유저에게 메시지 전송 성공"));
     }
 
-
-    //테스트용 코드
+    /**
+     * 키워드 기반 뉴스 검색 테스트 API
+     *
+     * @return 뉴스 검색 결과 리스트
+     */
+    @Operation(
+            summary = "뉴스 검색 테스트",
+            description = "키워드와 차단 키워드를 기반으로 어제 날짜의 뉴스를 검색합니다. (현재는 테스트용으로 null 전달)"
+    )
     @GetMapping("/search-news")
     public ResponseEntity<List<NewsEsDocument>> searchNews() {
         List<String> keyword = null;

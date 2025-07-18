@@ -2,6 +2,7 @@ package Baemin.News_Deliver.Global.Scheduler;
 
 import Baemin.News_Deliver.Domain.Kakao.service.KakaoSchedulerService;
 import Baemin.News_Deliver.Domain.Mypage.Entity.Setting;
+import Baemin.News_Deliver.Domain.Mypage.Repository.SettingRepository;
 import Baemin.News_Deliver.Domain.Mypage.service.SettingService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -18,21 +19,37 @@ public class SchedulerInitializer { //서버시작시 또는 특정 시간에 �
     private final SettingService settingService;
     private final TaskSchedulerService taskSchedulerService;
     private final KakaoSchedulerService kakaoSchedulerService;
+    private final SettingRepository settingRepository;
+    //private final BatchSchedulerService batchSchedulerService;
 
     /**
      * 서버 시작 시 전체 스케줄 초기화(테스트용)
      */
     @PostConstruct
     public void init() {
-        scheduleAllUserSettings();
-        //scheduleNewsBatch();
+
+        //batchSchedulerService.scheduleNewsBatch();
+
+        //DB 없을 시 대체 오류 확인
+//        if (isSettingTableAvailable()) {
+//            scheduleAllUserSettings();
+//        } else {
+//            log.warn("[SchedulerInit] setting 테이블이 없어 스케줄러를 실행하지 않습니다.");
+//        }
+
     }
 
 
-    @PostConstruct
+    //@PostConstruct
     //@Scheduled(cron = "0 0 5 * * *") // 매일 새벽 5시 > 추후에 배치가 끝나면 자동으로 할 수 있도록 정책 개선 예정
     public void scheduleAllUserSettings() {
         List<Setting> settings = settingService.getAllSettings();
+
+        //DB에 settings값이 없을 때 스케쥴러 취소 코드
+        if (settings == null || settings.isEmpty()) {
+            log.warn("[SchedulerInit] 등록할 Setting이 없어 스케줄러를 실행하지 않습니다.");
+            return;
+        }
 
         for (Setting setting : settings) {
             Long userId = setting.getUser().getId();
@@ -44,4 +61,16 @@ public class SchedulerInitializer { //서버시작시 또는 특정 시간에 �
             }
         }
     }
+
+    //테이블 존재 확인용 코드
+    private boolean isSettingTableAvailable() {
+        try {
+            settingRepository.count();
+            return true;
+        } catch (Exception e) {
+            log.warn("[SchedulerInit] 테이블 확인 중 오류 발생: {}", e.getMessage());
+            return false;
+        }
+    }
+
 }
