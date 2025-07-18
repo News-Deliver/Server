@@ -1,6 +1,8 @@
 package Baemin.News_Deliver.Domain.Kakao.service;
 
 import Baemin.News_Deliver.Domain.Mypage.DTO.SettingDTO;
+import Baemin.News_Deliver.Domain.Mypage.Entity.Days;
+import Baemin.News_Deliver.Domain.Mypage.Entity.Setting;
 import Baemin.News_Deliver.Domain.Mypage.Repository.SettingRepository;
 import Baemin.News_Deliver.Domain.Mypage.service.SettingService;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,38 +41,30 @@ public class KakaoSchedulerService {
             7, "SUN"
     );
 
-    public List<String> getCron(Long userId) {
-        List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
+    public String getCron(Long settingId) {
+        // 단일 Setting 엔티티 가져오기
+        Setting setting = settingService.getById(settingId);
 
-        List<String> crons = new ArrayList<>();
+        LocalDateTime deliveryTime = setting.getDeliveryTime(); // 문자열 변환 없이 그대로 사용
+        List<Days> days = setting.getDays(); // Days enum
 
-        for (SettingDTO setting : settings) {
-            // 1. deliveryTime, days 가져오기
-            String deliveryTime = setting.getDeliveryTime().toString();
-            List<Integer> days = setting.getDays();
+        // 로그 출력
+        log.info("deliveryTime: {}", deliveryTime);
+        log.info("days: {}", days);
 
-            // 2. 로그 출력
-            log.info("deliveryTime: {}", deliveryTime);
-            log.info("days: {}", days);
+        // 크론 생성
+        String cron = toCron(deliveryTime, days);
+        log.info("생성된 Cron 표현식: {}", cron);
 
-            // 3. 크론 표현식 생성
-            String cron = toCron(deliveryTime, days);
-            log.info("생성된 Cron 표현식: {}", cron);
-
-            crons.add(cron);
-        }
-
-        return crons;
+        return cron;
     }
 
-    private String toCron(String deliveryTimeStr, List<Integer> days) {
-        LocalDateTime deliveryTime = LocalDateTime.parse(deliveryTimeStr);
-
+    private String toCron(LocalDateTime deliveryTime, List<Days> days) {
         int hour = deliveryTime.getHour();
         int minute = deliveryTime.getMinute();
 
         String cronDays = days.stream()
-                .map(DAY_MAP::get)
+                .map(day -> DAY_MAP.get(day.getDeliveryDay()))  // day.getDay()가 int (1~7) 리턴
                 .filter(Objects::nonNull)
                 .collect(Collectors.joining(","));
 

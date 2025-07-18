@@ -5,6 +5,8 @@ import Baemin.News_Deliver.Domain.Auth.Entity.User;
 import Baemin.News_Deliver.Domain.Auth.Repository.AuthRepository;
 import Baemin.News_Deliver.Domain.Auth.Repository.UserRepository;
 import Baemin.News_Deliver.Domain.Kakao.service.KakaoMessageService;
+import Baemin.News_Deliver.Domain.Mypage.Entity.Setting;
+import Baemin.News_Deliver.Domain.Mypage.Repository.SettingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -31,45 +33,78 @@ public class TaskSchedulerService {
     private final KakaoMessageService kakaoMessageService;
     private final UserRepository userRepository;
     private final AuthRepository authRepository;
+    private final SettingRepository settingRepository;
 
-    private final Map<Long, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
+    // userId-settingId 조합으로 key 관리
+    private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
 
-    public void scheduleUser(Long userId, String cron) {
-
-        // 이미 등록된 경우 기존 스케줄 취소 후 재등록
-        if (scheduledTasks.containsKey(userId)) {
-            cancelUser(userId);
-        }
-
-        log.info("[Scheduler] 유저 {} 토큰확인 - {}", userId, LocalDateTime.now());
-        String refreshAccessToken = userRepository.findById(userId)
-                .flatMap(user -> authRepository.findByUser(user)
-                        .map(Auth::getKakaoRefreshToken))
-                .orElseThrow(() -> new IllegalArgumentException("유저 또는 리프레시 토큰이 존재하지 않습니다."));
-
-        log.info("[Scheduler] 토큰 확인 {}", refreshAccessToken);
-
-        Runnable task = () -> {
-            log.info("[Scheduler] 유저 {} 메시지 발송 시작 - {}", userId, LocalDateTime.now());
-            kakaoMessageService.sendKakaoMessage(refreshAccessToken, userId);
-        };
-
-        CronTrigger trigger = new CronTrigger(cron);
-        ScheduledFuture<?> future = taskScheduler.schedule(task, trigger);
-        scheduledTasks.put(userId, future);
-    }
-
-    public void cancelUser(Long userId) {
-        ScheduledFuture<?> future = scheduledTasks.get(userId);
-        if (future != null) {
-            future.cancel(false);
-            scheduledTasks.remove(userId);
-        }
-    }
-
-    public void rescheduleUser(Long userId, String newCron) {
-        cancelUser(userId);
-        scheduleUser(userId, newCron);
-    }
+//    public void scheduleUser(Setting setting) {
+//
+//        Long userId = setting.getUser().getId();
+//        Long settingId = setting.getId();
+//
+//        String taskKey = generateTaskKey(userId, setting.getId());
+//
+//        // 이미 등록된 경우 기존 스케줄 취소
+//        if (scheduledTasks.containsKey(taskKey)) {
+//            cancelUser(userId, settingId);
+//        }
+//
+//        log.info("[Scheduler] 유저 {} / setting {} 토큰 확인 중 - {}", userId, settingId, LocalDateTime.now());
+//
+//        String refreshAccessToken = userRepository.findById(userId)
+//                .flatMap(user -> authRepository.findByUser(user)
+//                        .map(Auth::getKakaoRefreshToken))
+//                .orElseThrow(() -> new IllegalArgumentException("유저 또는 리프레시 토큰이 존재하지 않습니다."));
+//
+//        log.info("[Scheduler] 토큰 확인 완료 - {}", refreshAccessToken);
+//
+//        Runnable task = () -> {
+//            log.info("[Scheduler] 유저 {} / setting {} 메시지 발송 트리거 - {}", userId, settingId, LocalDateTime.now());
+//
+//            try {
+//                Optional<Setting> optionalSetting = settingRepository.findById(settingId);
+//
+//                if (optionalSetting.isEmpty()) {
+//                    log.warn("[Scheduler] 유저 {} / setting {} 설정 정보가 없음", userId, settingId);
+//                    return;
+//                }
+//
+//                Setting settings = optionalSetting.get();
+//
+//                // 여기에 setting 정보 기반 메시지 전처리 가능 (예: 로그 확인)
+//                log.info("[Scheduler] 유저 {} / setting {} 키워드: {}, 제외 키워드: {}",
+//                        userId, settingId, settings.getKeywords(), settings.getBlockKeywords());
+//
+//                // 메시지 전송
+//                kakaoMessageService.sendKakaoMessage(refreshAccessToken, userId);
+//
+//            } catch (Exception e) {
+//                log.error("[Scheduler] 유저 {} / setting {} 메시지 발송 중 예외 발생: {}", userId, settingId, e.getMessage(), e);
+//            }
+//        };
+//
+//        CronTrigger trigger = new CronTrigger(cron);
+//        ScheduledFuture<?> future = taskScheduler.schedule(task, trigger);
+//        scheduledTasks.put(taskKey, future);
+//
+//        log.info("[Scheduler] 유저 {} / setting {} 스케줄 등록 완료 (cron: {})", userId, settingId, cron);
+//    }
+//
+//
+//    public void cancelUser(Long userId, Long settingId) {
+//        String taskKey = generateTaskKey(userId, settingId);
+//        ScheduledFuture<?> future = scheduledTasks.get(taskKey);
+//        if (future != null) {
+//            future.cancel(false);
+//            scheduledTasks.remove(taskKey);
+//            log.info("[Scheduler] 유저 {} / setting {} 스케줄 취소됨", userId, settingId);
+//        }
+//    }
+//
+//    //중복 스케쥴러 삭제 메서드용
+//    private String generateTaskKey(Long userId, Long settingId) {
+//        return userId + "-" + settingId;
+//    }
 
 }

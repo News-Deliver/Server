@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 뉴스 배달 설정(Setting) 도메인 서비스
@@ -264,5 +265,9 @@ public class SettingService {
 
     public List<Setting> getAllSettings() {
         return settingRepository.findAll();
+    }
+
+    public Setting getById(Long settingId) {
+        return settingRepository.findById(settingId).get();
     }
 }
