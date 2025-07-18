@@ -112,3 +112,7 @@ CREATE TABLE hot_topic
 CREATE INDEX idx_news_title ON news(title); -- news 테이블 DELETE 시 title 검색 시
 CREATE INDEX idx_news_published_at ON news(published_at);
 CREATE INDEX idx_news_publisher ON news(publisher);
+-- SELECT에 사용되는 조건
+CREATE INDEX idx_news_published_sections ON news(published_at, sections);
+-- 중복 삭제에 효율적인 복합 인덱스
+CREATE INDEX idx_news_dup ON news(published_at, title, publisher, id);
