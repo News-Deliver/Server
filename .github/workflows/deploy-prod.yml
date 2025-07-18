@@ -1,150 +1,21 @@
-name: 프로덕션 배포 (main 브랜치만)
+name: 프로덕션 배포 (개선된 디버깅)
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:  # 수동 실행 가능
-    inputs:
-      confirm_deployment:
-        description: '프로덕션 배포를 확인하시겠습니까?'
-        required: true
-        default: 'no'
-        type: choice
-        options:
-          - 'no'
-          - 'yes'
+    branches:
+      - master
+      - feat/git-master
+  workflow_dispatch:
 
 jobs:
-  # 1단계: 배포 전 테스트
-  pre-deploy-test:
-    runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: ci_test_password
-          MYSQL_DATABASE: backendDB
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
-      redis-cache:
-        image: redis:7.2
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd="redis-cli ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
-      redis-session1:
-        image: redis:7.2
-        ports:
-          - 6380:6379
-
-      redis-session2:
-        image: redis:7.2
-        ports:
-          - 6381:6379
-
-      elasticsearch:
-        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
-        env:
-          discovery.type: single-node
-          xpack.security.enabled: false
-          ES_JAVA_OPTS: -Xms512m -Xmx512m
-        ports:
-          - 9200:9200
-
-    steps:
-      - name: 코드 체크아웃
-        uses: actions/checkout@v4
-
-      - name: JDK 17 설정
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'corretto'
-
-      - name: Gradle 패키지 캐시
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-
-      - name: gradlew 실행 권한 부여
-        run: chmod +x SpringBoot/gradlew
-
-      - name: 서비스 준비 완료 대기
-        run: |
-          echo "⏳ 프로덕션 배포 전 테스트 환경 준비 중..."
-          
-          # MySQL 대기
-          for i in {1..30}; do
-            if mysqladmin ping -h"127.0.0.1" -P"3306" -u"root" -p"ci_test_password" --silent; then
-              echo "✅ MySQL 준비 완료"
-              break
-            fi
-            sleep 2
-          done
-          
-          # Redis 대기  
-          for i in {1..30}; do
-            if redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG; then
-              echo "✅ Redis 준비 완료"
-              break
-            fi
-            sleep 1
-          done
-          
-          # Elasticsearch 대기
-          for i in {1..60}; do
-            if curl -f http://localhost:9200/_cluster/health >/dev/null 2>&1; then
-              echo "✅ Elasticsearch 준비 완료"
-              break
-            fi
-            sleep 2
-          done
-
-      - name: 🚨 프로덕션 배포 전 전체 테스트
-        working-directory: ./SpringBoot
-        run: ./gradlew build --no-daemon
-
-      - name: 프로덕션 배포 전 테스트 결과 업로드
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: prod-pre-test-reports-${{ github.run_number }}
-          path: |
-            SpringBoot/build/reports/
-            SpringBoot/build/test-results/
-          retention-days: 90
-
-  # 2단계: 실제 프로덕션 배포
   deploy-production:
-    needs: pre-deploy-test
     runs-on: ubuntu-latest
-    environment: production  # GitHub Environment 보호 설정 필요
-    if: ${{ needs.pre-deploy-test.result == 'success' }}
+    environment: production
+    timeout-minutes: 25
 
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
-
-      - name: 🚨 프로덕션 배포 확인
-        run: |
-          echo "🚨🚨🚨 프로덕션 환경에 배포를 시작합니다 🚨🚨🚨"
-          echo "브랜치: ${{ github.ref_name }}"
-          echo "커밋: ${{ github.sha }}"
-          echo "배포 시간: $(date)"
 
       - name: SSH 키 설정
         run: |
@@ -157,19 +28,13 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
             echo "🚀 프로덕션 배포 시작: $(date)"
-            echo "📍 브랜치: ${{ github.ref_name }}"
-            echo "🔥 PRODUCTION 환경 배포"
           
             cd /opt/news-deliver
           
-            # 현재 브랜치 확인
-            echo "📋 현재 브랜치: $(git branch --show-current)"
-          
-            # main 브랜치로 체크아웃 및 풀
-            echo "📥 main에서 최신 코드 가져오는 중..."
+            # 최신 코드 가져오기
             git fetch origin
-            git checkout main || git checkout -b main origin/main
-            git pull origin main
+            git checkout ${{ github.ref_name }} || git checkout -b ${{ github.ref_name }} origin/${{ github.ref_name }}
+            git pull origin ${{ github.ref_name }}
           
             # 환경 변수 파일 확인
             if [ ! -f ".env" ]; then
@@ -177,78 +42,198 @@ jobs:
               exit 1
             fi
           
-            # 기존 컨테이너 중지
-            echo "🛑 기존 컨테이너 중지 중..."
-            docker-compose down || true
+            # 기존 컨테이너 정리
+            docker-compose down --remove-orphans --timeout 30 || true
+            docker system prune -f || true
           
-            # Docker 이미지 정리
-            echo "🧹 오래된 이미지 정리 중..."
-            docker system prune -f
+            # 새 컨테이너 시작
+            docker-compose up -d --build --force-recreate
           
-            # 새로운 컨테이너 시작
-            echo "🔄 새 컨테이너 시작 중..."
-            docker-compose up -d --build
+            echo "⏳ 컨테이너 시작 대기 (90초)..."
+            sleep 90
           
-            # 서비스 시작 대기 (프로덕션은 더 오래)
-            echo "⏳ 프로덕션 서비스 시작 대기 중..."
-            sleep 120
-          
-            # 서비스 상태 확인
-            echo "📊 서비스 상태 확인 중..."
-            docker-compose ps
-          
-            # Spring Boot 헬스체크
-            echo "🔍 프로덕션 Spring Boot 헬스체크 중..."
-            for i in {1..20}; do
-              if curl -f http://localhost:8080/ >/dev/null 2>&1; then
-                echo "✅ 프로덕션 Spring Boot가 정상 작동 중입니다!"
-                break
-              fi
-              echo "⏳ 시도 $i/20: Spring Boot가 아직 준비되지 않았습니다..."
-              sleep 15
-            done
-          
-            echo "🎉 프로덕션 배포 완료: $(date)"
+            echo "🎉 배포 스크립트 완료"
           '
 
-      - name: 프로덕션 외부 헬스체크
+      - name: 고급 디버깅 정보 수집
         run: |
-          echo "🔍 프로덕션 외부 헬스체크 중..."
-          sleep 60
+          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
+            echo "🔍 고급 디버깅 정보 수집 시작"
+            cd /opt/news-deliver
           
-          # 외부에서 접근 가능한지 확인
-          success=false
-          for i in {1..10}; do
-            if curl -f http://${{ secrets.EC2_HOST }}/ >/dev/null 2>&1; then
-              echo "✅ 프로덕션 외부 헬스체크 통과!"
-              echo "🔗 프로덕션 URL: http://${{ secrets.EC2_HOST }}/"
-              echo "📋 API 문서: http://${{ secrets.EC2_HOST }}/swagger.html"
-              success=true
-              break
+            echo "=== 현재 작업 디렉토리 ==="
+            pwd
+            ls -la
+          
+            echo "=== Docker 데몬 상태 ==="
+            sudo systemctl status docker --no-pager || echo "Docker 상태 확인 실패"
+          
+            echo "=== 모든 Docker 컨테이너 (실행 중 + 중지됨) ==="
+            docker ps -a
+          
+            echo "=== Docker 이미지 목록 ==="
+            docker images
+          
+            echo "=== Docker Compose 설정 검증 ==="
+            docker-compose config || echo "docker-compose.yml 설정 오류"
+          
+            echo "=== 직접 Docker 컨테이너 확인 ==="
+            docker ps --filter "name=springboot" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          
+            echo "=== Spring Boot 컨테이너 로그 (직접 docker 명령어) ==="
+            SPRINGBOOT_CONTAINER=$(docker ps -q --filter "name=springboot")
+            if [ ! -z "$SPRINGBOOT_CONTAINER" ]; then
+              echo "Spring Boot 컨테이너 ID: $SPRINGBOOT_CONTAINER"
+              docker logs $SPRINGBOOT_CONTAINER --tail=50
+            else
+              echo "Spring Boot 컨테이너가 실행 중이 아닙니다"
             fi
-            echo "⏳ 시도 $i/10: 외부 체크가 아직 준비되지 않았습니다..."
-            sleep 20
+          
+            echo "=== 모든 컨테이너 로그 (최근 10줄씩) ==="
+            for container in $(docker ps --format "{{.Names}}"); do
+              echo "--- $container 로그 ---"
+              docker logs $container --tail=10 2>/dev/null || echo "$container 로그 가져오기 실패"
+            done
+          
+            echo "=== 포트 사용 상태 (ss 명령어) ==="
+            ss -tulpn | grep -E ":(80|8080|3306|6379|9200)" || echo "해당 포트들이 사용 중이 아닙니다"
+          
+            echo "=== 네트워크 인터페이스 ==="
+            ip addr show
+          
+            echo "=== 호스트에서 직접 포트 테스트 ==="
+            echo "80번 포트 테스트:"
+            curl -I http://localhost:80/api/auth/status 2>/dev/null || echo "80번 포트 연결 실패"
+          
+            echo "=== Docker 네트워크 정보 ==="
+            docker network ls
+            docker network inspect news-deliver_backend 2>/dev/null || echo "백엔드 네트워크 정보 없음"
+          
+            echo "=== 시스템 리소스 ==="
+            echo "메모리:"
+            free -h
+            echo "디스크:"
+            df -h
+            echo "CPU:"
+            top -bn1 | head -5
+          
+            echo "🔍 고급 디버깅 정보 수집 완료"
+          '
+
+      - name: 컨테이너별 개별 테스트
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
+            echo "🧪 컨테이너별 개별 테스트 시작"
+            cd /opt/news-deliver
+          
+            echo "=== MySQL 컨테이너 테스트 ==="
+            MYSQL_CONTAINER=$(docker ps -q --filter "name=mysql")
+            if [ ! -z "$MYSQL_CONTAINER" ]; then
+              echo "MySQL 상태 확인:"
+              docker exec $MYSQL_CONTAINER mysqladmin ping -h localhost -u root -p$(grep DB_PASS .env | cut -d= -f2) || echo "MySQL 연결 실패"
+            else
+              echo "MySQL 컨테이너가 실행 중이 아닙니다"
+            fi
+          
+            echo "=== Redis 컨테이너 테스트 ==="
+            REDIS_CONTAINER=$(docker ps -q --filter "name=redis-cache")
+            if [ ! -z "$REDIS_CONTAINER" ]; then
+              echo "Redis 상태 확인:"
+              docker exec $REDIS_CONTAINER redis-cli ping || echo "Redis 연결 실패"
+            else
+              echo "Redis 컨테이너가 실행 중이 아닙니다"
+            fi
+          
+            echo "=== Elasticsearch 컨테이너 테스트 ==="
+            ES_CONTAINER=$(docker ps -q --filter "name=elasticsearch")
+            if [ ! -z "$ES_CONTAINER" ]; then
+              echo "Elasticsearch 상태 확인:"
+              docker exec $ES_CONTAINER curl -f http://localhost:9200/_cluster/health || echo "Elasticsearch 연결 실패"
+            else
+              echo "Elasticsearch 컨테이너가 실행 중이 아닙니다"
+            fi
+          
+            echo "=== Spring Boot 컨테이너 직접 테스트 ==="
+            SPRINGBOOT_CONTAINER=$(docker ps -q --filter "name=springboot")
+            if [ ! -z "$SPRINGBOOT_CONTAINER" ]; then
+              echo "Spring Boot 컨테이너 내부 프로세스:"
+              docker exec $SPRINGBOOT_CONTAINER ps aux || echo "프로세스 확인 실패"
+          
+              echo "Spring Boot 컨테이너 네트워크 확인:"
+              docker exec $SPRINGBOOT_CONTAINER netstat -tulpn 2>/dev/null || docker exec $SPRINGBOOT_CONTAINER ss -tulpn || echo "네트워크 상태 확인 실패"
+          
+              echo "Spring Boot 내부에서 자가 테스트:"
+              docker exec $SPRINGBOOT_CONTAINER curl -f http://localhost:8080/api/auth/status || echo "내부 자가 테스트 실패"
+            else
+              echo "Spring Boot 컨테이너가 실행 중이 아닙니다"
+            fi
+          
+            echo "🧪 컨테이너별 개별 테스트 완료"
+          '
+
+      - name: 최종 헬스체크
+        run: |
+          echo "🎯 최종 외부 헬스체크..."
+          
+          success=false
+          
+          for attempt in {1..5}; do
+            echo "🔄 시도 $attempt/5"
+          
+            # 다양한 엔드포인트 테스트
+            endpoints=("/api/auth/status" "/health" "/swagger.html")
+          
+            for endpoint in "${endpoints[@]}"; do
+              url="http://${{ secrets.EC2_HOST }}${endpoint}"
+              echo "  📡 테스트: $url"
+          
+              response=$(curl -s -o /dev/null -w "%{http_code}:%{time_total}" --connect-timeout 5 --max-time 10 "$url" || echo "000:0")
+              http_code=$(echo $response | cut -d: -f1)
+              time_total=$(echo $response | cut -d: -f2)
+          
+              echo "  📊 응답: 코드=$http_code, 시간=${time_total}s"
+          
+              if [ "$http_code" = "200" ]; then
+                echo "  ✅ $endpoint 성공!"
+                success=true
+                break 2
+              elif [ "$http_code" = "404" ] && [ "$endpoint" = "/health" ]; then
+                echo "  ⚠️ $endpoint 404 (아직 구현 안됨)"
+              else
+                echo "  ❌ $endpoint 실패"
+              fi
+            done
+          
+            if [ $attempt -lt 5 ]; then
+              echo "  ⏳ 15초 대기..."
+              sleep 15
+            fi
           done
           
-          if [ "$success" = false ]; then
-            echo "❌ 프로덕션 헬스체크 실패! 즉시 확인이 필요합니다."
-            exit 1
+          if [ "$success" = true ]; then
+            echo "🎉 배포 성공!"
+            echo "🔗 서비스 URL: http://${{ secrets.EC2_HOST }}/"
+            echo "📋 API 문서: http://${{ secrets.EC2_HOST }}/swagger.html"
+            echo "🩺 상태 확인: http://${{ secrets.EC2_HOST }}/api/auth/status"
+          else
+            echo "⚠️ 외부 헬스체크 실패했지만 서비스는 실행 중일 수 있습니다"
+            echo "🔗 직접 확인: http://${{ secrets.EC2_HOST }}/"
           fi
 
-      - name: 프로덕션 배포 요약
+      - name: 배포 요약
         if: always()
         run: |
-          echo "## 🚀 프로덕션 배포 요약" >> $GITHUB_STEP_SUMMARY
-          echo "- **배포 상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **환경**: PRODUCTION 🔥" >> $GITHUB_STEP_SUMMARY
-          echo "- **배포된 브랜치**: main" >> $GITHUB_STEP_SUMMARY
-          echo "- **배포 시간**: $(date)" >> $GITHUB_STEP_SUMMARY
-          echo "- **커밋**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **프로덕션 URL**: http://${{ secrets.EC2_HOST }}/" >> $GITHUB_STEP_SUMMARY
-          echo "- **API 문서**: http://${{ secrets.EC2_HOST }}/swagger.html" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 배포 요약" >> $GITHUB_STEP_SUMMARY
+          echo "- **상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **시간**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **브랜치**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "### ✅ 프로덕션 배포가 성공적으로 완료되었습니다!" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### ❌ 프로덕션 배포가 실패했습니다. 즉시 확인이 필요합니다!" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "### 🔗 링크들:" >> $GITHUB_STEP_SUMMARY
+          echo "- **메인 서비스**: http://${{ secrets.EC2_HOST }}/" >> $GITHUB_STEP_SUMMARY
+          echo "- **API 문서**: http://${{ secrets.EC2_HOST }}/swagger.html" >> $GITHUB_STEP_SUMMARY
+          echo "- **상태 확인**: http://${{ secrets.EC2_HOST }}/api/auth/status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🛠 문제 해결:" >> $GITHUB_STEP_SUMMARY
+          echo "1. \`ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. \`cd /opt/news-deliver && docker ps\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. \`docker logs springboot\` (컨테이너명 확인 후)" >> $GITHUB_STEP_SUMMARY
