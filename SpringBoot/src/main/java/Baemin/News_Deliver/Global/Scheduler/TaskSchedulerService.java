@@ -41,10 +41,13 @@ public class TaskSchedulerService {
             cancelUser(userId);
         }
 
+        log.info("[Scheduler] 유저 {} 토큰확인 - {}", userId, LocalDateTime.now());
         String refreshAccessToken = userRepository.findById(userId)
                 .flatMap(user -> authRepository.findByUser(user)
                         .map(Auth::getKakaoRefreshToken))
                 .orElseThrow(() -> new IllegalArgumentException("유저 또는 리프레시 토큰이 존재하지 않습니다."));
+
+        log.info("[Scheduler] 토큰 확인 {}", refreshAccessToken);
 
         Runnable task = () -> {
             log.info("[Scheduler] 유저 {} 메시지 발송 시작 - {}", userId, LocalDateTime.now());

@@ -33,42 +33,42 @@ public class BatchSchedulerService {
 
     @PostConstruct
     public void scheduleNewsBatch() {
-        String cron = "0 25 14 * * *";
+        String cron = "0 20 15 * * *";
 
         Runnable batchTask = () -> {
             log.info("[BatchScheduler] 자정 배치 시작 - {}", LocalDateTime.now());
 
             // 1단계: DB 배치
-            try {
-                LocalDateTime start = LocalDateTime.now();
-                log.info("[BatchScheduler] DB 배치 시작");
-
-                batchService.runBatch();
-
-                LocalDateTime end = LocalDateTime.now();
-                log.info("[BatchScheduler] DB 배치 완료 (실행 시간: {}초)", Duration.between(start, end).toSeconds());
-
-            } catch (Exception e) {
-                log.error("[BatchScheduler] DB 배치 실패: DB 배치 중 예외 발생: {}", e.getMessage(), e);
-                //우선은 코드 중단 이후에 로직은 정책에 맞춰서 작성할 것
-                return;
-            }
-
-            // 엘라스틱 인덱싱
-            try {
-                LocalDateTime start = LocalDateTime.now();
-                log.info("[BatchScheduler] 엘라스틱서치 인덱싱 시작");
-
-                newsEsService.esBulkService();
-
-                LocalDateTime end = LocalDateTime.now();
-                log.info("[BatchScheduler] 엘라스틱서치 인덱싱 완료 (실행 시간: {}초)", Duration.between(start, end).toSeconds());
-
-            } catch (Exception e) {
-                log.error("[BatchScheduler] 엘라스틱 서치 인덱싱 중 예외 발생: {}", e.getMessage(), e);
-                //우선은 코드 중단 이후에 로직은 정책에 맞춰서 작성할 것
-                return;
-            }
+//            try {
+//                LocalDateTime start = LocalDateTime.now();
+//                log.info("[BatchScheduler] DB 배치 시작");
+//
+//                batchService.runBatch();
+//
+//                LocalDateTime end = LocalDateTime.now();
+//                log.info("[BatchScheduler] DB 배치 완료 (실행 시간: {}초)", Duration.between(start, end).toSeconds());
+//
+//            } catch (Exception e) {
+//                log.error("[BatchScheduler] DB 배치 실패: DB 배치 중 예외 발생: {}", e.getMessage(), e);
+//                //우선은 코드 중단 이후에 로직은 정책에 맞춰서 작성할 것
+//                return;
+//            }
+//
+//            // 엘라스틱 인덱싱
+//            try {
+//                LocalDateTime start = LocalDateTime.now();
+//                log.info("[BatchScheduler] 엘라스틱서치 인덱싱 시작");
+//
+//                newsEsService.esBulkService();
+//
+//                LocalDateTime end = LocalDateTime.now();
+//                log.info("[BatchScheduler] 엘라스틱서치 인덱싱 완료 (실행 시간: {}초)", Duration.between(start, end).toSeconds());
+//
+//            } catch (Exception e) {
+//                log.error("[BatchScheduler] 엘라스틱 서치 인덱싱 중 예외 발생: {}", e.getMessage(), e);
+//                //우선은 코드 중단 이후에 로직은 정책에 맞춰서 작성할 것
+//                return;
+//            }
 
             // 핫토픽
             try {
