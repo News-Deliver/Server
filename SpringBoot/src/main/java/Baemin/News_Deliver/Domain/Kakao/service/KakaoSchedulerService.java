@@ -25,10 +25,6 @@ public class KakaoSchedulerService {
 
     private final SettingService settingService;
 
-    //userId 파라미터로 받아, Cron반환해주는 코드
-    public ResponseEntity getcron(Long userId) {
-        return ResponseEntity.ok(getCron(userId));
-    }
 
     //1(월)~7(일)로 매핑
     private static final Map<Integer, String> DAY_MAP = Map.of(
@@ -41,30 +37,30 @@ public class KakaoSchedulerService {
             7, "SUN"
     );
 
-    public String getCron(Long settingId) {
-        // 단일 Setting 엔티티 가져오기
-        Setting setting = settingService.getById(settingId);
+    /**
+     * 스케쥴러로 부터 Setting 엔티티를 받아, 크론 반환하는 메서드
+     */
+    public String getCron(Setting setting) {
+        LocalDateTime deliveryTime = setting.getDeliveryTime();
+        List<Days> days = setting.getDays();
 
-        LocalDateTime deliveryTime = setting.getDeliveryTime(); // 문자열 변환 없이 그대로 사용
-        List<Days> days = setting.getDays(); // Days enum
-
-        // 로그 출력
         log.info("deliveryTime: {}", deliveryTime);
         log.info("days: {}", days);
 
-        // 크론 생성
         String cron = toCron(deliveryTime, days);
         log.info("생성된 Cron 표현식: {}", cron);
-
         return cron;
     }
 
+    /**
+     * 크론 표현식으로 변환하는 메서드
+     */
     private String toCron(LocalDateTime deliveryTime, List<Days> days) {
         int hour = deliveryTime.getHour();
         int minute = deliveryTime.getMinute();
 
         String cronDays = days.stream()
-                .map(day -> DAY_MAP.get(day.getDeliveryDay()))  // day.getDay()가 int (1~7) 리턴
+                .map(day -> DAY_MAP.get(day.getDeliveryDay()))
                 .filter(Objects::nonNull)
                 .collect(Collectors.joining(","));
 

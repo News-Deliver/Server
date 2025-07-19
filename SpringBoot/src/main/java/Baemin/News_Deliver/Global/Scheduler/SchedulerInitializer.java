@@ -41,28 +41,26 @@ public class SchedulerInitializer { //서버시작시 또는 특정 시간에 �
     }
 
 
-    //@PostConstruct
-    //@Scheduled(cron = "0 0 5 * * *") // 매일 새벽 5시 > 추후에 배치가 끝나면 자동으로 할 수 있도록 정책 개선 예정
-//    public void scheduleAllUserSettings() {
-//        List<Setting> settings = settingService.getAllSettings();
-//
-//        //DB에 settings값이 없을 때 스케쥴러 취소 코드
-//        if (settings == null || settings.isEmpty()) {
-//            log.warn("[SchedulerInit] 등록할 Setting이 없어 스케줄러를 실행하지 않습니다.");
-//            return;
-//        }
-//
-//        for (Setting setting : settings) {
-//
-//            try {
-//                //셋팅값 반환
-//                taskSchedulerService.scheduleUser(Setting setting);
-//
-//            } catch (Exception e) {
-//                log.error("[SchedulerInit] 유저 {} / setting {} 에 대한 크론 등록 중 예외 발생: {}", setting.getUser().getId(), e.getMessage(), e);
-//            }
-//        }
-//    }
+    @PostConstruct
+    public void scheduleAllUserSettings() {
+        List<Setting> settings = settingService.getAllSettings();
+
+        //DB에 settings값이 없을 때 스케쥴러 취소 코드
+        if (settings == null || settings.isEmpty()) {
+            log.warn("[SchedulerInit] 등록할 Setting이 없어 스케줄러를 실행하지 않습니다.");
+            return;
+        }
+
+        for (Setting setting : settings) {
+            try {
+                //셋팅값 반환
+                taskSchedulerService.scheduleUser(setting);
+
+            } catch (Exception e) {
+                log.error("[SchedulerInit] 유저 {} / setting {} 에 대한 크론 등록 중 예외 발생: {}", setting.getUser().getId(), e.getMessage(), e);
+            }
+        }
+    }
 
     //테이블 존재 확인용 코드
     private boolean isSettingTableAvailable() {

@@ -33,12 +33,13 @@ public class BatchSchedulerService {
 
     @PostConstruct
     public void scheduleNewsBatch() {
-        String cron = "0 17 17 * * *";
+        //추후 자정으로 바꿀 것
+        String cron = "0 48 11 * * *";
 
         Runnable batchTask = () -> {
             log.info("[BatchScheduler] 자정 배치 시작 - {}", LocalDateTime.now());
 
-            // 1단계: DB 배치
+            // DB 배치
             try {
                 LocalDateTime start = LocalDateTime.now();
                 log.info("[BatchScheduler] DB 배치 시작");
@@ -87,81 +88,22 @@ public class BatchSchedulerService {
             }
 
             // 사용자 셋팅 스케줄 등록
-//            try {
-//                LocalDateTime start = LocalDateTime.now();
-//                log.info("[BatchScheduler] 사용자 셋팅 스케줄 등록 시작");
-//
-//                schedulerInitializer.scheduleAllUserSettings();
-//
-//                LocalDateTime end = LocalDateTime.now();
-//                log.info("[BatchScheduler] 사용자 셋팅 스케줄 등록 완료 (실행 시간: {}초)", Duration.between(start, end).toSeconds());
-//
-//            } catch (Exception e) {
-//                log.error("[BatchScheduler] 사용자 스케줄러 등록 중 예외 발생: {}", e.getMessage(), e);
-//            }
+            try {
+                LocalDateTime start = LocalDateTime.now();
+                log.info("[BatchScheduler] 사용자 셋팅 스케줄 등록 시작");
+
+                schedulerInitializer.scheduleAllUserSettings();
+
+                LocalDateTime end = LocalDateTime.now();
+                log.info("[BatchScheduler] 사용자 셋팅 스케줄 등록 완료 (실행 시간: {}초)", Duration.between(start, end).toSeconds());
+
+            } catch (Exception e) {
+                log.error("[BatchScheduler] 사용자 스케줄러 등록 중 예외 발생: {}", e.getMessage(), e);
+            }
         };
 
         batchFuture = taskScheduler.schedule(batchTask, new CronTrigger(cron));
     }
-
-
-    //원본 코드
-//    @PostConstruct
-//    public void scheduleNewsBatch() {
-//        String cron = "0 0 0 * * *"; // 매일 00:00
-//
-//        Runnable batchTask = () -> {
-//            log.info("[BatchScheduler] 자정 배치 시작 - {}", LocalDateTime.now());
-//
-//            // 1단계: DB 배치
-//            try {
-//                LocalDateTime start = LocalDateTime.now();
-//                log.info("[BatchScheduler] DB 배치 시작");
-//
-//                batchService.runBatch();
-//
-//                LocalDateTime end = LocalDateTime.now();
-//                log.info("[BatchScheduler] DB 배치 완료 (실행 시간: {}초)", Duration.between(start, end).toSeconds());
-//
-//            } catch (Exception e) {
-//                log.error("[BatchScheduler] DB 배치 실패: DB 배치 중 예외 발생: {}", e.getMessage(), e);
-//                //우선은 코드 중단 이후에 로직은 정책에 맞춰서 작성할 것
-//                return;
-//            }
-//
-//            // 엘라스틱 인덱싱
-//            try {
-//                LocalDateTime start = LocalDateTime.now();
-//                log.info("[BatchScheduler] 엘라스틱서치 인덱싱 시작");
-//
-//                newsEsService.esBulkService();
-//
-//                LocalDateTime end = LocalDateTime.now();
-//                log.info("[BatchScheduler] 엘라스틱서치 인덱싱 완료 (실행 시간: {}초)", Duration.between(start, end).toSeconds());
-//
-//            } catch (Exception e) {
-//                log.error("[BatchScheduler] 엘라스틱 서치 인덱싱 중 예외 발생: {}", e.getMessage(), e);
-//                //우선은 코드 중단 이후에 로직은 정책에 맞춰서 작성할 것
-//                return;
-//            }
-//
-//            // 사용자 셋팅 스케줄 등록
-//            try {
-//                LocalDateTime start = LocalDateTime.now();
-//                log.info("[BatchScheduler] 사용자 셋팅 스케줄 등록 시작");
-//
-//                schedulerInitializer.scheduleAllUserSettings();
-//
-//                LocalDateTime end = LocalDateTime.now();
-//                log.info("[BatchScheduler] 사용자 셋팅 스케줄 등록 완료 (실행 시간: {}초)", Duration.between(start, end).toSeconds());
-//
-//            } catch (Exception e) {
-//                log.error("[BatchScheduler] 사용자 스케줄러 등록 중 예외 발생: {}", e.getMessage(), e);
-//            }
-//        };
-//
-//        batchFuture = taskScheduler.schedule(batchTask, new CronTrigger(cron));
-//    }
 
     /**
      * 수동으로 배치 스케줄 취소 (필요한 경우)

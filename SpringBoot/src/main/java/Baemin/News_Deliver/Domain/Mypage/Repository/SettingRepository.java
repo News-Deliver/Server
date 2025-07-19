@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Setting 엔티티용 JPA Repository
@@ -29,4 +30,13 @@ public interface SettingRepository extends JpaRepository<Setting, Long> {
      */
     @Query("SELECT s FROM Setting s WHERE s.user = :user AND s.endDate > :now AND s.isDeleted = false")
     List<Setting> findActiveSettings(@Param("user") User user, @Param("now") LocalDateTime now);
+
+
+    @Query("""
+    SELECT s FROM Setting s
+    LEFT JOIN FETCH s.days
+    WHERE s.id = :id
+""")
+    Optional<Setting> findByIdWithDays(@Param("id") Long id);
+
 }
