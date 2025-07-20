@@ -22,12 +22,13 @@ import java.util.List;
 
 /**
  * 카카오 메시지 및 뉴스 관련 API 컨트롤러
+ * <p>사용자로부터 키워드를 제공받아, 사용자별 맞춤 뉴스 데이터를 카카오톡으로 전달합니다.</p>
  */
 @RestController
 @RequiredArgsConstructor
 @Slf4j
 @RequestMapping("/kakao")
-@Tag(name = "Kakao API", description = "카카오톡 메시지 및 뉴스 검색 관련 API")
+@Tag(name = "Kakao API", description = "카카오톡 뉴스 메시지 API")
 public class KakaoController {
 
     private final KakaoMessageService kakaoMessageService;
@@ -37,6 +38,13 @@ public class KakaoController {
 
     /**
      * 모든 유저에게 카카오톡 메시지를 전송하는 API
+     *
+     * 코드 호출 순서
+     * <ul>
+     *     <li>카카오톡으로 회원 가입한 전체 유저의 정보를 받아, 전체 유저의 RefreshToken 가져옵니다.</li>
+     *     <li>유저의 RefreshToken을 기준으로 각 유저의 정보를 받아옵니다.</li>
+     *     <li>각 유저별로 kakaoMessageService 의 sendKakaoMessage를 호출합니다.</li>
+     * </ul>
      *
      * @return 메시지 전송 결과 응답
      */
@@ -99,10 +107,10 @@ public class KakaoController {
      */
     @Operation(
             summary = "뉴스 검색 테스트",
-            description = "키워드와 차단 키워드를 기반으로 어제 날짜의 뉴스를 검색합니다. (현재는 테스트용으로 null 전달)"
+            description = "키워드와 차단 키워드를 기반으로 어제 날짜의 뉴스를 검색합니다. (현재는 테스트용으로 키워드는 null 전달)"
     )
-    @GetMapping("/search-news")
-    public ResponseEntity<List<NewsEsDocument>> searchNews() {
+    @GetMapping("/search-news-test")
+    public ResponseEntity<List<NewsEsDocument>> searchNewsTest() {
         List<String> keyword = null;
         List<String> blockKeyword = null;
 

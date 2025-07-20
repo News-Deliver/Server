@@ -39,7 +39,7 @@ public enum ErrorCode {
     KAKAO_TOKEN_INVALID("AUTH_ERROR_633", "카카오 토큰이 유효하지 않습니다", HttpStatus.UNAUTHORIZED),
     OAUTH2_PROVIDER_NOT_SUPPORTED("AUTH_ERROR_634", "지원하지 않는 OAuth2 제공자입니다", HttpStatus.BAD_REQUEST),
     OAUTH2_PROCESS_FAILED("AUTH_ERROR_635", "OAuth2 처리 중 오류가 발생했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
-
+    KAKAO_TOKEN_ACCESS_FAILED("AUTH_ERROR_636", "카카오 access 토큰이 유효하지 않습니다", HttpStatus.UNAUTHORIZED),
 
 
     // Setting 관련
@@ -52,8 +52,16 @@ public enum ErrorCode {
 
 
 
-    /* Kakao 예외 : 8xx */
+    /* Kakao 예외 : 8xx (800~849) */
     MESSAGE_SEND_FAILED("KAKAO_ERROR_801", "카카오 메시지 전송 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    NO_NEWS_DATA("KAKAO_ERROR_802", "해당 키워드의 뉴스 데이터 없음", HttpStatus.NO_CONTENT),
+
+    /* Scheduler 예외 : 85x (850~899)*/
+    BATCH_SCHEDULER_FAILED("SCHEDULER_ERROR_850", "DB 배치 스케쥴러 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    ES_SCHEDULER_FAILED("SCHEDULER_ERROR_851", "ES 배치 스케쥴러 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    HT_SCHEDULER_FAILED("SCHEDULER_ERROR_852", "HotTopic 배치 스케쥴러 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    SETTING_SCHEDULER_FAILED("SCHEDULER_ERROR_853", "Setting 배치 스케쥴러 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    SETTING_CRON_FAILED("SCHEDULER_ERROR_854", "Setting 크론 생성 실패", HttpStatus.INTERNAL_SERVER_ERROR),
 
 
     /* Mypage 예외 : 9xx */

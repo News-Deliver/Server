@@ -18,6 +18,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+/**
+ * {@code KakaoSchedulerService}는 사용자 설정(Setting)을 기반으로
+ * 스케줄링을 위한 Cron 표현식을 생성하는 서비스입니다.
+ * <p>
+ * Cron 표현식은 스케줄러(TaskScheduler)에서 사용되며,
+ * 설정된 요일(Days)과 시간(DeliveryTime)을 기반으로 생성됩니다.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -25,7 +32,10 @@ public class KakaoSchedulerService {
 
     private final SettingService settingService;
 
-
+    /**
+     * 요일 번호(1~7)를 영문 요일 문자열로 매핑하는 정적 Map입니다.
+     * 1: 월요일(MON), 7: 일요일(SUN)
+     */
     //1(월)~7(일)로 매핑
     private static final Map<Integer, String> DAY_MAP = Map.of(
             1, "MON",
@@ -38,7 +48,10 @@ public class KakaoSchedulerService {
     );
 
     /**
-     * 스케쥴러로 부터 Setting 엔티티를 받아, 크론 반환하는 메서드
+     * 주어진 {@link Setting} 객체로부터 Cron 표현식을 생성하여 반환합니다.
+     *
+     * @param setting {@link Setting} 사용자 설정 객체 (시간 및 요일 포함)
+     * @return Cron 형식의 문자열 (예: {@code 0 30 9 ? * MON,WED,FRI})
      */
     public String getCron(Setting setting) {
         LocalDateTime deliveryTime = setting.getDeliveryTime();
@@ -53,7 +66,11 @@ public class KakaoSchedulerService {
     }
 
     /**
-     * 크론 표현식으로 변환하는 메서드
+     * 시간 및 요일 정보를 기반으로 Cron 표현식을 생성합니다.
+     *
+     * @param deliveryTime 뉴스 전달 시간
+     * @param days         전달 요일 리스트
+     * @return Cron 형식의 문자열 (초 분 시 ? * 요일들)
      */
     private String toCron(LocalDateTime deliveryTime, List<Days> days) {
         int hour = deliveryTime.getHour();
