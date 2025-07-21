@@ -63,30 +63,17 @@ public class BatchService {
     public ResponseEntity<String> runBatch() throws JobInstanceAlreadyCompleteException, JobExecutionAlreadyRunningException, JobParametersInvalidException, JobRestartException {
         long totalStart = System.currentTimeMillis(); // 전체 시작 시간
 
-        // FIXME : Monitoring으로 Batch한 만큼 생략하는 로직 추가할 것.
         for (String section : sections) {
             int count = intermediateBatchRedisService.getBatchCount(section);
 
-            if (count > 0) {
-                JobParameters params = new JobParametersBuilder()
-                        .addLong("time", System.currentTimeMillis())
-                        .addString("section", section)
-                        .addLong("offset", Long.valueOf(count))
-                        .toJobParameters();
+            JobParameters params = new JobParametersBuilder()
+                    .addLong("time", System.currentTimeMillis())
+                    .addString("section", section)
+                    .addLong("offset", Long.valueOf(count))
+                    .toJobParameters();
 
-                log.info("📦 섹션별 배치 시작: {}", section);
-                jobLauncher.run(newsDataSaveJob, params);
-
-            } else {
-                JobParameters params = new JobParametersBuilder()
-                        .addLong("time", System.currentTimeMillis())
-                        .addString("section", section)
-                        .addLong("offset", Long.valueOf(count))
-                        .toJobParameters();
-
-                log.info("📦 섹션별 배치 시작: {}", section);
-                jobLauncher.run(newsDataSaveJob, params);
-            }
+            log.info("📦 섹션별 배치 시작: {}", section);
+            jobLauncher.run(newsDataSaveJob, params);
         }
 
         long totalEnd = System.currentTimeMillis(); // 전체 끝 시간

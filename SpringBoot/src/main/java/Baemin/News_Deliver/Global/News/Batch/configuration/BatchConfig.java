@@ -300,6 +300,6 @@ public class BatchConfig {
     }
 
     private int getTotalPagesOfResponse(NewsResponseDTO newsResponseDTO, Long offset) {
-        return Math.min((int) (newsResponseDTO.getTotal_pages() - (9000 * offset)) / 100 + 1, 100);
+        return Math.min((int) (newsResponseDTO.getTotal_items() - (9000 * offset)) / 100 + 1, 100);
     }
 }
