@@ -6,6 +6,17 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 
+/**
+ * {@code SchedulerConfig}는 간단한 테스트용 스케줄러 클래스입니다.
+ * <p>
+ * Spring의 {@link org.springframework.scheduling.annotation.Scheduled} 어노테이션을 통해
+ * 주기적으로 작업을 실행할 수 있으며, 현재는 테스트 용도로만 정의되어 있습니다.
+ * </p>
+ *
+ * <p>
+ * 향후 실제 배치 서비스 호출이나 데이터 초기화 작업 등으로 확장할 수 있습니다.
+ * </p>
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
