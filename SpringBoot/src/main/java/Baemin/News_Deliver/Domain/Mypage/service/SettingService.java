@@ -75,6 +75,16 @@ public class SettingService {
                 .user(user)
                 .build();
 
+        /**
+         * What : Setting 객체 저장 코드
+         * Why : Setting 데이터 저장 없이,  자식 관계인 SettingKeyword는 저장되는 상황 발생 -> Error 발생
+         * When : 2025-07-21
+         * Who : 류성열
+         *
+         * Then : Setting 객체를 먼저 저장, 영속 상태로 만들어 오류 해결 시도
+         */
+        settingRepository.save(setting);
+
         saveSettingKeyword(settingDTO, setting);
         saveBlockKeyword(settingDTO, setting);
         saveDays(settingDTO, setting);
