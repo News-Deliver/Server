@@ -1,5 +1,6 @@
 package Baemin.News_Deliver.Global.News.Batch.service;
 
+import Baemin.News_Deliver.Global.NewsMonitoring.Service.IntermediateBatchRedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -44,6 +45,8 @@ public class BatchService {
 
     private final JobLauncher jobLauncher;
     private final Job newsDataSaveJob;
+    private final IntermediateBatchRedisService intermediateBatchRedisService;
+
 
     /** 처리할 섹션 목록 */
     private  String[] sections = {
@@ -57,18 +60,33 @@ public class BatchService {
      *
      * @return ResponseEntity 응답 (성공 시 200 OK, 실패 시 500)
      */
-
     public ResponseEntity<String> runBatch() throws JobInstanceAlreadyCompleteException, JobExecutionAlreadyRunningException, JobParametersInvalidException, JobRestartException {
         long totalStart = System.currentTimeMillis(); // 전체 시작 시간
 
+        // FIXME : Monitoring으로 Batch한 만큼 생략하는 로직 추가할 것.
         for (String section : sections) {
-            JobParameters params = new JobParametersBuilder()
-                    .addLong("time", System.currentTimeMillis())
-                    .addString("section", section)
-                    .toJobParameters();
+            int count = intermediateBatchRedisService.getBatchCount(section);
 
-            log.info("📦 섹션별 배치 시작: {}", section);
-            jobLauncher.run(newsDataSaveJob, params);
+            if (count > 0) {
+                JobParameters params = new JobParametersBuilder()
+                        .addLong("time", System.currentTimeMillis())
+                        .addString("section", section)
+                        .addLong("offset", Long.valueOf(count))
+                        .toJobParameters();
+
+                log.info("📦 섹션별 배치 시작: {}", section);
+                jobLauncher.run(newsDataSaveJob, params);
+
+            } else {
+                JobParameters params = new JobParametersBuilder()
+                        .addLong("time", System.currentTimeMillis())
+                        .addString("section", section)
+                        .addLong("offset", Long.valueOf(count))
+                        .toJobParameters();
+
+                log.info("📦 섹션별 배치 시작: {}", section);
+                jobLauncher.run(newsDataSaveJob, params);
+            }
         }
 
         long totalEnd = System.currentTimeMillis(); // 전체 끝 시간

@@ -124,7 +124,10 @@ public class BatchConfig {
      */
     @StepScope
     @Bean
-    public ItemReader<NewsItemDTO> apiReader(@Value("#{jobParameters['section']}") String section) {
+    public ItemReader<NewsItemDTO> apiReader(
+            @Value("#{jobParameters['section']}") String section,
+            @Value("#{jobParameters['offset']}") Long offset
+    ) {
         // API에서 데이터를 모두 불러와서 ListItemReader로 반환
         // ListItemReader가 이 데이터를 하나씩 읽어서 다음 단계로 전달
 
@@ -142,8 +145,13 @@ public class BatchConfig {
 
         log.info("🔍 검색한 기간: {} ~ {}", dateFrom, dateTo);
 
-        // 먼저 page=1 호출 → total_pages 얻기
-        int totalPages = getPage(1, section, pageSize, dateFrom, dateTo);
+        NewsResponseDTO newsResponseDTO = getAPIResponse(1, section, pageSize, dateFrom, dateTo);
+
+        //전체 페이지수 확인
+        //offset만큼 생략하기
+        //반복할 페이지 정하기
+        int totalPages = getTotalPagesOfResponse(newsResponseDTO, offset);
+
         List<NewsItemDTO> newsList = new ArrayList<>();
 
         for (int page = 1; page <= totalPages; page++) {
@@ -262,7 +270,7 @@ public class BatchConfig {
      *
      * @return 총 페이지 수
      */
-    private int getPage(int page, String section, int pageSize, String dateFrom, String dateTo) {
+    private NewsResponseDTO getAPIResponse(int page, String section, int pageSize, String dateFrom, String dateTo) {
         RestTemplate restTemplate = new RestTemplate();
 
         // 쿼리 파라미터 구성
@@ -288,6 +296,10 @@ public class BatchConfig {
                 NewsResponseDTO.class
         );
 
-        return response.getBody().getTotal_pages();
+        return response.getBody();
+    }
+
+    private int getTotalPagesOfResponse(NewsResponseDTO newsResponseDTO, Long offset) {
+        return Math.min((int) (newsResponseDTO.getTotal_pages() - (9000 * offset)) / 100 + 1, 100);
     }
 }

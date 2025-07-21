@@ -6,8 +6,6 @@ import Baemin.News_Deliver.Domain.HotTopic.repository.HotTopicRepository;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.News.ElasticSearch.service.NewsEsService;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
