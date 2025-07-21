@@ -48,6 +48,7 @@ public enum ErrorCode {
     SETTING_CREATION_FAILED("SETTING_ERROR_903", "설정 생성에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
     SETTING_UPDATE_FAILED("SETTING_ERROR_904", "설정 수정에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
     SETTING_DELETE_FAILED("SETTING_ERROR_905", "설정 삭제에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    SETTING_LIMIT_EXCEEDED("SETTING_ERROR_906", "설정 가능한 개수를 초과했습니다", HttpStatus.BAD_REQUEST),
     /* HotTopic 예외 : 7xx */
 
 
