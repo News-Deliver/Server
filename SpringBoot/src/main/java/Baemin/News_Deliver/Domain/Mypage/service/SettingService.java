@@ -252,7 +252,23 @@ public class SettingService {
     }
 
     public List<Setting> getAllSettings() {
-        return settingRepository.findAll();
+
+        /**
+         * What : 다음님 오류 코드에 대한 대응
+         * How : 세팅값에 적용된 기간 + 요일을 가져옴
+         * Who : 류성열
+         * When : 2025-07-21
+         *
+         */
+        return settingRepository.findAllValidSettingsWithDays(LocalDateTime.now());
+
+        /**
+         * What :다음님 코드 오류
+         * Why : 삭제된 세팅 값까지 가져와서, 오류를 발생
+         * -> 삭제된 세팅은 기록은 존재하지만, 요일 값은 삭제 되어 NP 발생
+         *
+         */
+        //return settingRepository.findAll();
     }
 
     public Setting getById(Long settingId) {

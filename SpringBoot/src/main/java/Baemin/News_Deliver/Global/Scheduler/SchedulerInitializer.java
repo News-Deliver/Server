@@ -64,7 +64,7 @@ public class SchedulerInitializer { //서버시작시 또는 특정 시간에 �
         //DB에 settings값이 없을 때 스케쥴러 취소 코드
         if (settings == null || settings.isEmpty()) {
             log.warn("[SchedulerInit] 등록할 Setting이 없어 스케줄러를 실행하지 않습니다.");
-            throw new KakaoException(ErrorCode.SETTING_NOT_FOUND);
+            // throw new KakaoException(ErrorCode.SETTING_NOT_FOUND);
         }
 
         for (Setting setting : settings) {

@@ -3,6 +3,8 @@ package Baemin.News_Deliver.Domain.SubServices.MoreNews.Service;
 import Baemin.News_Deliver.Domain.Kakao.entity.History;
 import Baemin.News_Deliver.Domain.Kakao.repository.HistoryRepository;
 import Baemin.News_Deliver.Domain.SubServices.Exception.SubServicesException;
+import Baemin.News_Deliver.Domain.SubServices.FeedBack.Entity.Feedback;
+import Baemin.News_Deliver.Domain.SubServices.FeedBack.Repository.FeedbackRepository;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.GroupedNewsHistoryResponse;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.NewsHistoryResponse;
 import Baemin.News_Deliver.Global.Exception.ErrorCode;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 public class MoreNewsService {
 
     private final HistoryRepository historyRepository;
+    private final FeedbackRepository feedbackRepository;
     private final ElasticsearchClient client;
 
     // ======================= 뉴스 추가 검색 메서드 =========================
@@ -161,9 +164,19 @@ public class MoreNewsService {
     public List<GroupedNewsHistoryResponse> getGroupedNewsHistory(int page, int size) {
         Long userId = 1L;
 
+        // 1. 모든 히스토리 조회
         List<History> allHistories = historyRepository.findAllBySetting_User_Id(userId);
 
-        /* 1. 그룹핑: settingId + publishedAt (시 단위로 자르기) */
+        // 2. 히스토리 ID 수집 → Feedback 일괄 조회
+        List<Long> historyIds = allHistories.stream()
+                .map(History::getId)
+                .collect(Collectors.toList());
+
+        Map<Long, Feedback> feedbackMap = feedbackRepository.findAllById(historyIds)
+                .stream()
+                .collect(Collectors.toMap(fb -> fb.getHistory().getId(), fb -> fb));
+
+        // 3. 그룹핑: settingId + publishedAt(HOUR)
         Map<String, List<History>> grouped = allHistories.stream()
                 .collect(Collectors.groupingBy(h -> {
                     Long settingId = h.getSetting().getId();
@@ -171,27 +184,31 @@ public class MoreNewsService {
                     return settingId + "_" + truncatedPublishedAt;
                 }));
 
-        /* 2. GroupedNewsHistoryResponse 리스트로 변환 */
+        // 4. DTO 변환
         List<GroupedNewsHistoryResponse> groupedList = grouped.entrySet().stream()
                 .map(entry -> {
                     List<History> histories = entry.getValue();
-                    History any = histories.get(0); // 그룹 내 대표 뉴스
+                    History any = histories.get(0);
+
+                    List<NewsHistoryResponse> newsResponses = histories.stream()
+                            .map(history -> {
+                                Feedback feedback = feedbackMap.get(history.getId());
+                                return NewsHistoryResponse.from(history, feedback);
+                            })
+                            .toList();
 
                     return GroupedNewsHistoryResponse.builder()
                             .settingId(any.getSetting().getId())
-                            .publishedAt(any.getPublishedAt().truncatedTo(ChronoUnit.HOURS)) // 대표 시간
-                            .settingKeyword(any.getSettingKeyword()) // 대표 키워드
-                            .blockKeyword(any.getBlockKeyword())     // 대표 제외 키워드
-                            .newsList(histories.stream()
-                                    .map(NewsHistoryResponse::from)
-                                    .collect(Collectors.toList()))
+                            .publishedAt(any.getPublishedAt().truncatedTo(ChronoUnit.HOURS))
+                            .settingKeyword(any.getSettingKeyword())
+                            .blockKeyword(any.getBlockKeyword())
+                            .newsList(newsResponses)
                             .build();
                 })
-
-                .sorted(Comparator.comparing(GroupedNewsHistoryResponse::getPublishedAt).reversed()) // 최신순
+                .sorted(Comparator.comparing(GroupedNewsHistoryResponse::getPublishedAt).reversed())
                 .collect(Collectors.toList());
 
-        /* 3. 페이지네이션 */
+        // 5. 페이지네이션
         int fromIndex = page * size;
         int toIndex = Math.min(fromIndex + size, groupedList.size());
 
@@ -201,7 +218,5 @@ public class MoreNewsService {
 
         return groupedList.subList(fromIndex, toIndex);
     }
-
-
 
 }
