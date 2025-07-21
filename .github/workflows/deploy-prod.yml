@@ -1,10 +1,10 @@
-name: 프로덕션 배포 (개선된 디버깅)
+name: 프로덕션 배포 (HTTPS 대응)
 
 on:
   push:
     branches:
       - master
-      - feat/git-master
+      - feat/https
   workflow_dispatch:
 
 jobs:
@@ -55,139 +55,81 @@ jobs:
             echo "🎉 배포 스크립트 완료"
           '
 
-      - name: 고급 디버깅 정보 수집
+      - name: 컨테이너 상태 확인
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
-            echo "🔍 고급 디버깅 정보 수집 시작"
+            echo "🔍 컨테이너 상태 확인"
             cd /opt/news-deliver
           
-            echo "=== 현재 작업 디렉토리 ==="
-            pwd
-            ls -la
+            echo "=== Docker 컨테이너 상태 ==="
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
           
-            echo "=== Docker 데몬 상태 ==="
-            sudo systemctl status docker --no-pager || echo "Docker 상태 확인 실패"
-          
-            echo "=== 모든 Docker 컨테이너 (실행 중 + 중지됨) ==="
-            docker ps -a
-          
-            echo "=== Docker 이미지 목록 ==="
-            docker images
-          
-            echo "=== Docker Compose 설정 검증 ==="
-            docker-compose config || echo "docker-compose.yml 설정 오류"
-          
-            echo "=== 직접 Docker 컨테이너 확인 ==="
-            docker ps --filter "name=springboot" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-          
-            echo "=== Spring Boot 컨테이너 로그 (직접 docker 명령어) ==="
+            echo "=== Spring Boot 컨테이너 로그 (최근 30줄) ==="
             SPRINGBOOT_CONTAINER=$(docker ps -q --filter "name=springboot")
             if [ ! -z "$SPRINGBOOT_CONTAINER" ]; then
-              echo "Spring Boot 컨테이너 ID: $SPRINGBOOT_CONTAINER"
-              docker logs $SPRINGBOOT_CONTAINER --tail=50
+              docker logs $SPRINGBOOT_CONTAINER --tail=30
             else
-              echo "Spring Boot 컨테이너가 실행 중이 아닙니다"
+              echo "❌ Spring Boot 컨테이너가 실행 중이 아닙니다"
             fi
           
-            echo "=== 모든 컨테이너 로그 (최근 10줄씩) ==="
-            for container in $(docker ps --format "{{.Names}}"); do
-              echo "--- $container 로그 ---"
-              docker logs $container --tail=10 2>/dev/null || echo "$container 로그 가져오기 실패"
-            done
+            echo "=== 주요 서비스 상태 확인 ==="
+            # MySQL 확인
+            if docker ps | grep -q mysql; then
+              echo "✅ MySQL 컨테이너 실행 중"
+            else
+              echo "❌ MySQL 컨테이너 없음"
+            fi
           
-            echo "=== 포트 사용 상태 (ss 명령어) ==="
-            ss -tulpn | grep -E ":(80|8080|3306|6379|9200)" || echo "해당 포트들이 사용 중이 아닙니다"
+            # Redis 확인  
+            if docker ps | grep -q redis; then
+              echo "✅ Redis 컨테이너 실행 중"
+            else
+              echo "❌ Redis 컨테이너 없음"
+            fi
           
-            echo "=== 네트워크 인터페이스 ==="
-            ip addr show
-          
-            echo "=== 호스트에서 직접 포트 테스트 ==="
-            echo "80번 포트 테스트:"
-            curl -I http://localhost:80/api/auth/status 2>/dev/null || echo "80번 포트 연결 실패"
-          
-            echo "=== Docker 네트워크 정보 ==="
-            docker network ls
-            docker network inspect news-deliver_backend 2>/dev/null || echo "백엔드 네트워크 정보 없음"
-          
-            echo "=== 시스템 리소스 ==="
-            echo "메모리:"
-            free -h
-            echo "디스크:"
-            df -h
-            echo "CPU:"
-            top -bn1 | head -5
-          
-            echo "🔍 고급 디버깅 정보 수집 완료"
+            # Elasticsearch 확인
+            if docker ps | grep -q elasticsearch; then
+              echo "✅ Elasticsearch 컨테이너 실행 중"
+            else
+              echo "❌ Elasticsearch 컨테이너 없음"
+            fi
           '
 
-      - name: 컨테이너별 개별 테스트
+      - name: 내부 헬스체크
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
-            echo "🧪 컨테이너별 개별 테스트 시작"
-            cd /opt/news-deliver
+            echo "🏥 내부 헬스체크 시작"
           
-            echo "=== MySQL 컨테이너 테스트 ==="
-            MYSQL_CONTAINER=$(docker ps -q --filter "name=mysql")
-            if [ ! -z "$MYSQL_CONTAINER" ]; then
-              echo "MySQL 상태 확인:"
-              docker exec $MYSQL_CONTAINER mysqladmin ping -h localhost -u root -p$(grep DB_PASS .env | cut -d= -f2) || echo "MySQL 연결 실패"
-            else
-              echo "MySQL 컨테이너가 실행 중이 아닙니다"
-            fi
-          
-            echo "=== Redis 컨테이너 테스트 ==="
-            REDIS_CONTAINER=$(docker ps -q --filter "name=redis-cache")
-            if [ ! -z "$REDIS_CONTAINER" ]; then
-              echo "Redis 상태 확인:"
-              docker exec $REDIS_CONTAINER redis-cli ping || echo "Redis 연결 실패"
-            else
-              echo "Redis 컨테이너가 실행 중이 아닙니다"
-            fi
-          
-            echo "=== Elasticsearch 컨테이너 테스트 ==="
-            ES_CONTAINER=$(docker ps -q --filter "name=elasticsearch")
-            if [ ! -z "$ES_CONTAINER" ]; then
-              echo "Elasticsearch 상태 확인:"
-              docker exec $ES_CONTAINER curl -f http://localhost:9200/_cluster/health || echo "Elasticsearch 연결 실패"
-            else
-              echo "Elasticsearch 컨테이너가 실행 중이 아닙니다"
-            fi
-          
-            echo "=== Spring Boot 컨테이너 직접 테스트 ==="
+            # Spring Boot 컨테이너 내부에서 자가 테스트
             SPRINGBOOT_CONTAINER=$(docker ps -q --filter "name=springboot")
             if [ ! -z "$SPRINGBOOT_CONTAINER" ]; then
-              echo "Spring Boot 컨테이너 내부 프로세스:"
-              docker exec $SPRINGBOOT_CONTAINER ps aux || echo "프로세스 확인 실패"
-          
-              echo "Spring Boot 컨테이너 네트워크 확인:"
-              docker exec $SPRINGBOOT_CONTAINER netstat -tulpn 2>/dev/null || docker exec $SPRINGBOOT_CONTAINER ss -tulpn || echo "네트워크 상태 확인 실패"
-          
-              echo "Spring Boot 내부에서 자가 테스트:"
-              docker exec $SPRINGBOOT_CONTAINER curl -f http://localhost:8080/api/auth/status || echo "내부 자가 테스트 실패"
-            else
-              echo "Spring Boot 컨테이너가 실행 중이 아닙니다"
+              echo "Spring Boot 내부 헬스체크:"
+              docker exec $SPRINGBOOT_CONTAINER curl -f http://localhost:8080/api/auth/status 2>/dev/null && echo "✅ 내부 API 정상" || echo "❌ 내부 API 실패"
             fi
           
-            echo "🧪 컨테이너별 개별 테스트 완료"
+            # 호스트에서 컨테이너로 접근 테스트
+            echo "호스트에서 컨테이너 접근 테스트:"
+            curl -f http://localhost:8080/api/auth/status 2>/dev/null && echo "✅ 호스트->컨테이너 정상" || echo "❌ 호스트->컨테이너 실패"
           '
 
-      - name: 최종 헬스체크
+      - name: 최종 HTTPS 헬스체크
         run: |
-          echo "🎯 최종 외부 헬스체크..."
+          echo "🎯 HTTPS 도메인 헬스체크..."
           
           success=false
+          api_domain="https://api.likelionnews.click"
           
           for attempt in {1..5}; do
             echo "🔄 시도 $attempt/5"
           
-            # 다양한 엔드포인트 테스트
-            endpoints=("/api/auth/status" "/health" "/swagger.html")
+            # HTTPS 도메인으로 테스트
+            endpoints=("/api/auth/status" "/swagger.html")
           
             for endpoint in "${endpoints[@]}"; do
-              url="http://${{ secrets.EC2_HOST }}${endpoint}"
+              url="${api_domain}${endpoint}"
               echo "  📡 테스트: $url"
           
-              response=$(curl -s -o /dev/null -w "%{http_code}:%{time_total}" --connect-timeout 5 --max-time 10 "$url" || echo "000:0")
+              response=$(curl -s -o /dev/null -w "%{http_code}:%{time_total}" --connect-timeout 10 --max-time 20 "$url" || echo "000:0")
               http_code=$(echo $response | cut -d: -f1)
               time_total=$(echo $response | cut -d: -f2)
           
@@ -197,10 +139,12 @@ jobs:
                 echo "  ✅ $endpoint 성공!"
                 success=true
                 break 2
-              elif [ "$http_code" = "404" ] && [ "$endpoint" = "/health" ]; then
-                echo "  ⚠️ $endpoint 404 (아직 구현 안됨)"
+              elif [ "$http_code" = "404" ]; then
+                echo "  ⚠️ $endpoint 404 (엔드포인트가 없을 수 있음)"
+              elif [ "$http_code" = "000" ]; then
+                echo "  ❌ $endpoint 연결 실패 (DNS/ALB 문제 가능성)"
               else
-                echo "  ❌ $endpoint 실패"
+                echo "  ❌ $endpoint HTTP $http_code 오류"
               fi
             done
           
@@ -211,29 +155,34 @@ jobs:
           done
           
           if [ "$success" = true ]; then
-            echo "🎉 배포 성공!"
-            echo "🔗 서비스 URL: http://${{ secrets.EC2_HOST }}/"
-            echo "📋 API 문서: http://${{ secrets.EC2_HOST }}/swagger.html"
-            echo "🩺 상태 확인: http://${{ secrets.EC2_HOST }}/api/auth/status"
+            echo "🎉 HTTPS 배포 성공!"
+            echo "🔗 API 서비스: https://api.likelionnews.click"
+            echo "📋 API 문서: https://api.likelionnews.click/swagger.html"
+            echo "🩺 상태 확인: https://api.likelionnews.click/api/auth/status"
           else
-            echo "⚠️ 외부 헬스체크 실패했지만 서비스는 실행 중일 수 있습니다"
-            echo "🔗 직접 확인: http://${{ secrets.EC2_HOST }}/"
+            echo "⚠️ HTTPS 헬스체크 실패"
+            echo "🔧 확인사항:"
+            echo "  - Route53에서 api.likelionnews.click이 ALB를 가리키는지 확인"
+            echo "  - ALB에 SSL 인증서가 정상 연결되었는지 확인"
+            echo "  - ALB Target Group이 healthy 상태인지 확인"
+            echo "  - EC2 Security Group에서 ALB → EC2:8080 허용되었는지 확인"
           fi
 
       - name: 배포 요약
         if: always()
         run: |
-          echo "## 🚀 배포 요약" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 HTTPS 배포 요약" >> $GITHUB_STEP_SUMMARY
           echo "- **상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- **시간**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- **브랜치**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 링크들:" >> $GITHUB_STEP_SUMMARY
-          echo "- **메인 서비스**: http://${{ secrets.EC2_HOST }}/" >> $GITHUB_STEP_SUMMARY
-          echo "- **API 문서**: http://${{ secrets.EC2_HOST }}/swagger.html" >> $GITHUB_STEP_SUMMARY
-          echo "- **상태 확인**: http://${{ secrets.EC2_HOST }}/api/auth/status" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 HTTPS 링크들:" >> $GITHUB_STEP_SUMMARY
+          echo "- **API 서비스**: https://api.likelionnews.click" >> $GITHUB_STEP_SUMMARY
+          echo "- **API 문서**: https://api.likelionnews.click/swagger.html" >> $GITHUB_STEP_SUMMARY
+          echo "- **상태 확인**: https://api.likelionnews.click/api/auth/status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🛠 문제 해결:" >> $GITHUB_STEP_SUMMARY
           echo "1. \`ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}\`" >> $GITHUB_STEP_SUMMARY
           echo "2. \`cd /opt/news-deliver && docker ps\`" >> $GITHUB_STEP_SUMMARY
           echo "3. \`docker logs springboot\` (컨테이너명 확인 후)" >> $GITHUB_STEP_SUMMARY
+          echo "4. ALB와 Route53 설정 확인" >> $GITHUB_STEP_SUMMARY
