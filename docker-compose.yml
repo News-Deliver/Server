@@ -1,46 +1,46 @@
 version: '3.8'
 services:
-#  springboot:
-#    build:
-#      context: ./SpringBoot
-#      dockerfile: Dockerfile
-#    container_name: springboot
-#    environment:
-#      - TZ=Asia/Seoul
-#      - SPRING_PROFILES_ACTIVE=dev
-#      - DB_SERVER=${DB_SERVER}
-#      - DB_PORT=${DB_PORT}
-#      - DB_USER=${DB_USER}
-#      - DB_PASS=${DB_PASS}
-#      - REDIS_CACHE_HOST=${REDIS_CACHE_HOST}
-#      - REDIS_CACHE_PORT=${REDIS_CACHE_PORT}
-#      - REDIS_SESSION1_HOST=${REDIS_SESSION1_HOST}
-#      - REDIS_SESSION1_PORT=${REDIS_SESSION1_PORT}
-#      - REDIS_SESSION2_HOST=${REDIS_SESSION2_HOST}
-#      - REDIS_SESSION2_PORT=${REDIS_SESSION2_PORT}
-#      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-#      - OPENAI_API_KEY=${OPENAI_API_KEY}
-#      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
-#      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
-#      - DEEPSEARCH_API_KEY=${DEEPSEARCH_API_KEY}
-#      - ELASTICSEARCH_SERVER=${ELASTICSEARCH_SERVER}
-#      - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT}
-#    ports:
-#      - "8080:8080"
-#    volumes:
-#      - /etc/localtime:/etc/localtime:ro
-#      - /etc/timezone:/etc/timezone:ro
-#    depends_on:
-#      mysql:
-#        condition: service_healthy
-#      redis-cache:
-#        condition: service_started
-#      redis-session1:
-#        condition: service_started
-#      redis-session2:
-#        condition: service_started
-#    networks:
-#      - backend
+  springboot:
+    build:
+      context: ./SpringBoot
+      dockerfile: Dockerfile
+    container_name: springboot
+    environment:
+      - TZ=Asia/Seoul
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_SERVER=${DB_SERVER}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - REDIS_CACHE_HOST=${REDIS_CACHE_HOST}
+      - REDIS_CACHE_PORT=${REDIS_CACHE_PORT}
+      - REDIS_SESSION1_HOST=${REDIS_SESSION1_HOST}
+      - REDIS_SESSION1_PORT=${REDIS_SESSION1_PORT}
+      - REDIS_SESSION2_HOST=${REDIS_SESSION2_HOST}
+      - REDIS_SESSION2_PORT=${REDIS_SESSION2_PORT}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+      - DEEPSEARCH_API_KEY=${DEEPSEARCH_API_KEY}
+      - ELASTICSEARCH_SERVER=${ELASTICSEARCH_SERVER}
+      - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT}
+    ports:
+      - "8080:8080"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started
+      redis-session1:
+        condition: service_started
+      redis-session2:
+        condition: service_started
+    networks:
+      - backend
 
   mysql:
     image: mysql:8.0
@@ -130,71 +130,71 @@ services:
       - es-data:/usr/share/elasticsearch/data
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
-#
-#  prometheus:
-#    image: prom/prometheus:latest
-#    container_name: prometheus
-#    volumes:
-#      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-#      - prometheus-data:/prometheus
-#    ports:
-#      - "9090:9090"
-#    networks:
-#      - backend
-#
-#  grafana:
-#    image: grafana/grafana:latest
-#    container_name: grafana
-#    ports:
-#      - "3000:3000"
-#    networks:
-#      - backend
-#    volumes:
-#      - grafana-data:/var/lib/grafana
 
-#  mysqld-exporter:
-#    image: prom/mysqld-exporter:latest
-#    container_name: mysqld-exporter
-#    environment:
-#      - DATA_SOURCE_NAME=root:1234@(mysql:3306)/
-#    ports:
-#      - "9104:9104"
-#    depends_on:
-#      - mysql
-#    networks:
-#      - backend
-#
-#  redis-exporter:
-#    image: oliver006/redis_exporter
-#    container_name: redis-exporter
-#    command:
-#      - '--redis.addr=redis://redis-cache:6379'
-#    ports:
-#      - "9121:9121"
-#    depends_on:
-#      - redis-cache
-#    networks:
-#      - backend
-#
-#  redis-session1-exporter:
-#    image: oliver006/redis_exporter
-#    container_name: redis-session1-exporter
-#    command:
-#      - '--redis.addr=redis://redis-session1:6379'
-#    ports:
-#      - "9122:9121"
-#    networks:
-#      - backend
-#
-#  redis-session2-exporter:
-#    image: oliver006/redis_exporter
-#    container_name: redis-session2-exporter
-#    command:
-#      - '--redis.addr=redis://redis-session2:6379'
-#    ports:
-#      - "9123:9121"
-#    networks:
-#      - backend
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - backend
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  #  mysqld-exporter:
+  #    image: prom/mysqld-exporter:latest
+  #    container_name: mysqld-exporter
+  #    environment:
+  #      - DATA_SOURCE_NAME=root:1234@(mysql:3306)/
+  #    ports:
+  #      - "9104:9104"
+  #    depends_on:
+  #      - mysql
+  #    networks:
+  #      - backend
+
+  redis-exporter:
+    image: oliver006/redis_exporter
+    container_name: redis-exporter
+    command:
+      - '--redis.addr=redis://redis-cache:6379'
+    ports:
+      - "9121:9121"
+    depends_on:
+      - redis-cache
+    networks:
+      - backend
+
+  redis-session1-exporter:
+    image: oliver006/redis_exporter
+    container_name: redis-session1-exporter
+    command:
+      - '--redis.addr=redis://redis-session1:6379'
+    ports:
+      - "9122:9121"
+    networks:
+      - backend
+
+  redis-session2-exporter:
+    image: oliver006/redis_exporter
+    container_name: redis-session2-exporter
+    command:
+      - '--redis.addr=redis://redis-session2:6379'
+    ports:
+      - "9123:9121"
+    networks:
+      - backend
 
 volumes:
   mysql-data:
