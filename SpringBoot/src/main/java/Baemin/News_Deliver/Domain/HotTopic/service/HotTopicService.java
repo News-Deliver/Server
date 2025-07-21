@@ -72,12 +72,12 @@ public class HotTopicService {
         long start = System.nanoTime();
         String cacheKey = "hottopic:daily";
 // 캐싱 때문에 발생하는 문제를 임시적으로 해결하기 위한 임시 주석 : 성열 7월 19일 토요일
-//        List<HotTopicResponseDTO> cached = (List<HotTopicResponseDTO>) redisTemplate.opsForValue().get(cacheKey);
-//        if (cached != null) {
-//            long end = System.nanoTime();
-//            log.info("✅ 핫토픽 캐시에서 가져옴 ({} ms)", (end - start) / 1_000_000);
-//            return cached;
-//        }
+        List<HotTopicResponseDTO> cached = (List<HotTopicResponseDTO>) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            long end = System.nanoTime();
+            log.info("✅ 핫토픽 캐시에서 가져옴 ({} ms)", (end - start) / 1_000_000);
+            return cached;
+        }
 
         LocalDate yesterday = LocalDate.now().minusDays(1);
         LocalDateTime startOfYesterday = yesterday.atStartOfDay();
@@ -157,12 +157,12 @@ public class HotTopicService {
         long start = System.nanoTime();
         String cacheKey = CACHE_PREFIX + keyword;
 
-//        List<NewsEsDocument> cached = (List<NewsEsDocument>) redisTemplate.opsForValue().get(cacheKey);
-//        if (cached != null) {
-//            long end = System.nanoTime();
-//            log.info("✅ 캐시에서 가져옴: {} ({} ms)", keyword, (end - start) / 1_000_000);
-//            return cached;
-//        }
+        List<NewsEsDocument> cached = (List<NewsEsDocument>) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            long end = System.nanoTime();
+            log.info("✅ 캐시에서 가져옴: {} ({} ms)", keyword, (end - start) / 1_000_000);
+            return cached;
+        }
 
         List<NewsEsDocument> result = elasticSearchService.searchByKeyword(keyword, size);
 //        long end = System.nanoTime();
