@@ -53,7 +53,7 @@ public class BatchSchedulerService {
     @PostConstruct
     public void scheduleNewsBatch() {
         //추후 자정으로 바꿀 것
-        String cron = "0 59 23 * * *";
+        String cron = "0 3 0 * * *";
 
         Runnable batchTask = () -> {
             log.info("[BatchScheduler] 자정 배치 시작 - {}", LocalDateTime.now());
