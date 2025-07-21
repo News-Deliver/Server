@@ -57,10 +57,8 @@ public class BatchService {
      *
      * 각 섹션에 대해 하나의 Job을 실행하며,
      * JobParameter로 섹션명과 현재 시간(`time`)을 함께 전달합니다.
-     *
-     * @return ResponseEntity 응답 (성공 시 200 OK, 실패 시 500)
      */
-    public ResponseEntity<String> runBatch() throws JobInstanceAlreadyCompleteException, JobExecutionAlreadyRunningException, JobParametersInvalidException, JobRestartException {
+    public void runBatch() throws JobInstanceAlreadyCompleteException, JobExecutionAlreadyRunningException, JobParametersInvalidException, JobRestartException {
         long totalStart = System.currentTimeMillis(); // 전체 시작 시간
 
         for (String section : sections) {
@@ -78,8 +76,6 @@ public class BatchService {
 
         long totalEnd = System.currentTimeMillis(); // 전체 끝 시간
         log.info("✅ 전체 섹션 배치 소요 시간: {} ms", (totalEnd - totalStart));
-
-        return ResponseEntity.ok("뉴스 Batch 서비스 성공");
     }
 
 }

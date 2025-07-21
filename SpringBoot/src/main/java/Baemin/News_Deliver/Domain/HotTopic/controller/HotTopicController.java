@@ -69,20 +69,4 @@ public class HotTopicController {
         return ResponseEntity.ok(newsEsDocumentList);
     }
 
-    /**
-     * 어제의 핫토픽 키워드를 Elasticsearch에서 추출 후 DB에 저장
-     *
-     * <p>내부 테스트용이거나 추후 스케줄러로 대체될 예정입니다.</p>
-     *
-     * @throws IOException Elasticsearch 통신 오류
-     */
-    @Operation(
-            summary = "어제의 핫토픽 추출 및 저장 (관리용)",
-            description = "Elasticsearch에서 어제의 인기 키워드를 추출하고 DB에 저장합니다. (스케줄러 예정)"
-    )
-    @ApiResponse(responseCode = "200", description = "저장 완료")
-    @GetMapping("/savehottopic")
-    public void saveHotTopic() throws IOException {
-        hotTopicService.getAndSaveHotTopic();
-    }
 }
