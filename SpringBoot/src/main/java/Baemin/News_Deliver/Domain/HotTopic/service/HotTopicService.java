@@ -165,8 +165,8 @@ public class HotTopicService {
         }
 
         List<NewsEsDocument> result = elasticSearchService.searchByKeyword(keyword, size);
-//        long end = System.nanoTime();
-//        log.info("📦 ES 조회 & 캐싱: {} 완료 ({} ms)", keyword, (end - start) / 1_000_000);
+        long end = System.nanoTime();
+        log.info("📦 ES 조회 & 캐싱: {} 완료 ({} ms)", keyword, (end - start) / 1_000_000);
 
         long ttlSeconds = Duration.between(
                 LocalDateTime.now(),
