@@ -125,14 +125,16 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 프로덕션 환경에서는 특정 도메인만 허용
+
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:3000",           // 개발용 React
                 "http://localhost:3001",           // 개발용 React (포트 변경시)
                 "http://localhost:5173",           // 개발용 React
-                "https://merry-crepe-479d93.netlify.app", // 프로토타입 배포 URL
+                "https://likelionnews.click",      // 프론트엔드 메인 도메인
+                "https://www.likelionnews.click",  // 프론트엔드 www 도메인
+                "https://*.amplifyapp.com",        // Amplify 기본 도메인
+                "https://merry-crepe-479d93.netlify.app", // 기존 프로토타입
                 "http://43.201.27.98"             // AWS EC2 IP
-
         ));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));

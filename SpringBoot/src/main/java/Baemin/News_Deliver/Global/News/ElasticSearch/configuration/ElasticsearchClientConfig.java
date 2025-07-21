@@ -48,6 +48,8 @@ public class ElasticsearchClientConfig {
         // HTTP 기반 Low-level 클라이언트 구성
         RestClient restClient = RestClient.builder(
                 new HttpHost("elasticsearch", 9200)
+                // 성열 로컬용 임시 Host
+                //new HttpHost("localhost", 9200)
         ).build();
 
         // LocalDateTime 직렬화 지원 및 ISO 포맷 지정

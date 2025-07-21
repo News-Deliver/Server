@@ -15,12 +15,12 @@ import Baemin.News_Deliver.Domain.Mypage.Repository.SettingRepository;
 import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 뉴스 배달 설정(Setting) 도메인 서비스
@@ -59,34 +59,30 @@ public class SettingService {
      * @return 생성된 Setting ID
      */
     @Transactional
-    public ResponseEntity<Long> saveSetting(SettingDTO settingDTO) {
-        try {
-            Setting setting = new Setting();
-            setting.setDeliveryTime(settingDTO.getDeliveryTime());
-            setting.setStartDate(settingDTO.getStartDate());
-            setting.setEndDate(settingDTO.getEndDate());
-            setting.setIsDeleted(false);
+    public Long saveSetting(SettingDTO settingDTO) {
+        User user = userRepository.findById(settingDTO.getUserId())
+                .orElseThrow(() -> new SettingException(ErrorCode.USER_NOT_FOUND));
 
-            User user = userRepository.findById(settingDTO.getUserId())
-                    .orElseThrow(() -> new SettingException(ErrorCode.USER_NOT_FOUND));
-            setting.setUser(user);
-
-            setting = settingRepository.save(setting);
-
-            saveSettingKeyword(settingDTO, setting);
-            saveBlockKeyword(settingDTO, setting);
-            saveDays(settingDTO, setting);
-
-            log.info("설정 저장 성공: userId={}, settingId={}", settingDTO.getUserId(), setting.getId());
-            return ResponseEntity.ok(setting.getId());
-
-        } catch (SettingException e) {
-            throw e; // 이미 정의된 예외는 그대로 재던지기
-        } catch (Exception e) {
-            log.error("설정 저장 실패: userId={}, error={}", settingDTO.getUserId(), e.getMessage());
-            throw new SettingException(ErrorCode.SETTING_CREATION_FAILED);
+        if (isSettingLimitExceeded(user)) {
+            throw new SettingException(ErrorCode.SETTING_LIMIT_EXCEEDED);
         }
+
+        Setting setting = Setting.builder()
+                .deliveryTime(settingDTO.getDeliveryTime())
+                .startDate(settingDTO.getStartDate())
+                .endDate(settingDTO.getEndDate())
+                .isDeleted(false)
+                .user(user)
+                .build();
+
+        saveSettingKeyword(settingDTO, setting);
+        saveBlockKeyword(settingDTO, setting);
+        saveDays(settingDTO, setting);
+
+        log.info("설정 저장 성공: userId={}, settingId={}", settingDTO.getUserId(), setting.getId());
+        return setting.getId();
     }
+
 
     /**
      * 설정 수정 (권한 체크 포함)
@@ -97,44 +93,35 @@ public class SettingService {
      * @return 204 No Content 응답
      */
     @Transactional
-    public ResponseEntity<Void> updateSetting(SettingDTO settingDTO) {
-        try {
-            Setting setting = settingRepository.findById(settingDTO.getId())
-                    .orElseThrow(() -> new SettingException(ErrorCode.SETTING_NOT_FOUND));
+    public void updateSetting(SettingDTO settingDTO) {
+        Setting setting = settingRepository.findById(settingDTO.getId())
+                .orElseThrow(() -> new SettingException(ErrorCode.SETTING_NOT_FOUND));
 
-            // 🔐 권한 체크: 현재 사용자가 이 설정의 소유자인지 확인
-            if (!setting.getUser().getId().equals(settingDTO.getUserId())) {
-                log.warn("권한 없는 설정 수정 시도: userId={}, settingId={}, 실제소유자={}",
-                        settingDTO.getUserId(), settingDTO.getId(), setting.getUser().getId());
-                throw new SettingException(ErrorCode.SETTING_ACCESS_DENIED);
-            }
+        Long ownerId = setting.getUser().getId();
+        Long currentUserId = settingDTO.getUserId();
 
-            // 1. 기본 설정 값 갱신
-            setting.setDeliveryTime(settingDTO.getDeliveryTime());
-            setting.setStartDate(settingDTO.getStartDate());
-            setting.setEndDate(settingDTO.getEndDate());
-
-            // 2. 서브 데이터 삭제
-            settingKeywordRepository.deleteBySetting(setting);
-            settingBlockKeywordRepository.deleteBySetting(setting);
-            daysRepository.deleteBySetting(setting);
-
-            // 3. 재사용 (insert)
-            saveSettingKeyword(settingDTO, setting);
-            saveBlockKeyword(settingDTO, setting);
-            saveDays(settingDTO, setting);
-
-            log.info("설정 수정 성공: userId={}, settingId={}", settingDTO.getUserId(), setting.getId());
-            return ResponseEntity.noContent().build();
-
-        } catch (SettingException e) {
-            throw e; // 이미 정의된 예외는 그대로 재던지기
-        } catch (Exception e) {
-            log.error("설정 수정 실패: userId={}, settingId={}, error={}",
-                    settingDTO.getUserId(), settingDTO.getId(), e.getMessage());
-            throw new SettingException(ErrorCode.SETTING_UPDATE_FAILED);
+        if (!ownerId.equals(currentUserId)) {
+            throw new SettingException(ErrorCode.SETTING_ACCESS_DENIED);
         }
+
+        // 1. 기본 설정 값 갱신
+        setting.setDeliveryTime(settingDTO.getDeliveryTime());
+        setting.setStartDate(settingDTO.getStartDate());
+        setting.setEndDate(settingDTO.getEndDate());
+
+        // 2. 서브 데이터 삭제
+        settingKeywordRepository.deleteBySetting(setting);
+        settingBlockKeywordRepository.deleteBySetting(setting);
+        daysRepository.deleteBySetting(setting);
+
+        // 3. 서브 데이터 재등록
+        saveSettingKeyword(settingDTO, setting);
+        saveBlockKeyword(settingDTO, setting);
+        saveDays(settingDTO, setting);
+
+        log.info("✅ 설정 수정 완료: userId={}, settingId={}", currentUserId, setting.getId());
     }
+
 
     /**
      * 사용자별 설정 전체 조회
@@ -167,35 +154,27 @@ public class SettingService {
      * @return 204 No Content 응답
      */
     @Transactional
-    public ResponseEntity<Void> deleteSetting(Long settingId, Long userId) {
-        try {
-            Setting setting = settingRepository.findById(settingId)
-                    .orElseThrow(() -> new SettingException(ErrorCode.SETTING_NOT_FOUND));
+    public void deleteSetting(Long settingId, Long userId) {
+        Setting setting = settingRepository.findById(settingId)
+                .orElseThrow(() -> new SettingException(ErrorCode.SETTING_NOT_FOUND));
 
-            // 🔐 권한 체크: 현재 사용자가 이 설정의 소유자인지 확인
-            if (!setting.getUser().getId().equals(userId)) {
-                log.warn("권한 없는 설정 삭제 시도: userId={}, settingId={}, 실제소유자={}",
-                        userId, settingId, setting.getUser().getId());
-                throw new SettingException(ErrorCode.SETTING_ACCESS_DENIED);
-            }
-
-            settingKeywordRepository.deleteBySetting(setting);
-            settingBlockKeywordRepository.deleteBySetting(setting);
-            daysRepository.deleteBySetting(setting);
-
-            setting.setIsDeleted(true);
-            setting.setEndDate(LocalDateTime.now());
-            settingRepository.save(setting);
-
-            log.info("설정 삭제 성공: userId={}, settingId={}", userId, settingId);
-            return ResponseEntity.noContent().build();
-
-        } catch (SettingException e) {
-            throw e; // 이미 정의된 예외는 그대로 재던지기
-        } catch (Exception e) {
-            log.error("설정 삭제 실패: userId={}, settingId={}, error={}", userId, settingId, e.getMessage());
-            throw new SettingException(ErrorCode.SETTING_DELETE_FAILED);
+        Long ownerId = setting.getUser().getId();
+        if (!ownerId.equals(userId)) {
+            log.warn("❌ 권한 없는 설정 삭제 시도: userId={}, settingId={}, 실제소유자={}", userId, settingId, ownerId);
+            throw new SettingException(ErrorCode.SETTING_ACCESS_DENIED);
         }
+
+        // 서브 데이터 삭제
+        settingKeywordRepository.deleteBySetting(setting);
+        settingBlockKeywordRepository.deleteBySetting(setting);
+        daysRepository.deleteBySetting(setting);
+
+        // 소프트 삭제
+        setting.setIsDeleted(true);
+        setting.setEndDate(LocalDateTime.now());
+        settingRepository.save(setting);
+
+        log.info("🗑️ 설정 삭제 성공: userId={}, settingId={}", userId, settingId);
     }
 
     /**
@@ -241,6 +220,16 @@ public class SettingService {
     }
 
     /**
+     * 사용자의 활성중인 설정이 3개가 넘는지 아닌지 검사하는 메서드 (내부 메서드)
+     * */
+    private boolean isSettingLimitExceeded(User user) {
+        List<Setting> settingList = settingRepository.findActiveSettings(user, LocalDateTime.now());
+
+        return settingList.size() > 3;
+    }
+
+
+    /**
      * Setting → SettingDTO 변환 (연관 엔티티 포함)
      */
     private SettingDTO convertToDTO(Setting setting) {
@@ -260,5 +249,29 @@ public class SettingService {
                         .map(Days::getDeliveryDay)
                         .toList())
                 .build();
+    }
+
+    public List<Setting> getAllSettings() {
+
+        /**
+         * What : 다음님 오류 코드에 대한 대응
+         * How : 세팅값에 적용된 기간 + 요일을 가져옴
+         * Who : 류성열
+         * When : 2025-07-21
+         *
+         */
+        return settingRepository.findAllValidSettingsWithDays(LocalDateTime.now());
+
+        /**
+         * What :다음님 코드 오류
+         * Why : 삭제된 세팅 값까지 가져와서, 오류를 발생
+         * -> 삭제된 세팅은 기록은 존재하지만, 요일 값은 삭제 되어 NP 발생
+         *
+         */
+        //return settingRepository.findAll();
+    }
+
+    public Setting getById(Long settingId) {
+        return settingRepository.findById(settingId).get();
     }
 }
