@@ -60,9 +60,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
 
                         //  테스트용 엔드포인트
-                        .requestMatchers("/run-batch").permitAll()
-                        .requestMatchers("/elasticsearch/**").permitAll()
                         .requestMatchers("/monitoring/test/**").permitAll()
+                        .requestMatchers("/api/admin/**").permitAll()
 
                         //  HotTopic 공개 API (로그인 없이도 조회 가능)
                         .requestMatchers("/api/hottopic/**").permitAll()
