@@ -152,17 +152,17 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
 
-#  mysqld-exporter:
-#    image: prom/mysqld-exporter:latest
-#    container_name: mysqld-exporter
-#    environment:
-#      - DATA_SOURCE_NAME=root:1234@(mysql:3306)/
-#    ports:
-#      - "9104:9104"
-#    depends_on:
-#      - mysql
-#    networks:
-#      - backend
+  #  mysqld-exporter:
+  #    image: prom/mysqld-exporter:latest
+  #    container_name: mysqld-exporter
+  #    environment:
+  #      - DATA_SOURCE_NAME=root:1234@(mysql:3306)/
+  #    ports:
+  #      - "9104:9104"
+  #    depends_on:
+  #      - mysql
+  #    networks:
+  #      - backend
 
   redis-exporter:
     image: oliver006/redis_exporter

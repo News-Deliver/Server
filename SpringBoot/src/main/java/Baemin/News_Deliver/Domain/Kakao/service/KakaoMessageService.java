@@ -81,7 +81,7 @@ public class KakaoMessageService {
             throw new KakaoException(ErrorCode.KAKAO_TOKEN_ACCESS_FAILED);
         }
 
-        getNewsEsDocumentList(userId);
+        getNewsEsDocumentList_Fixed(userId);
         return accessToken;
     }
 
@@ -96,7 +96,7 @@ public class KakaoMessageService {
         try {
             String accessToken = getKakaoUserAccessToken(refreshAccessToken, userId);
 
-            List<NewsEsDocument> newsList = getNewsEsDocumentList(userId);
+            List<NewsEsDocument> newsList = getNewsEsDocumentList_Fixed(userId);
 
             //뉴스가 없을 때 반환할 값을 고민 해볼 것.
             if (newsList == null) new KakaoException(ErrorCode.NO_NEWS_DATA);;
@@ -130,47 +130,51 @@ public class KakaoMessageService {
         }
     }
 
-    /**
-     * 사용자의 Setting 정보를 기반으로 키워드에 해당하는 뉴스를 검색하여 반환합니다.
-     * 뉴스는 히스토리에 저장되며, 최대 5개까지 템플릿으로 전송됩니다.
+    /*
+     * 사용자의 키워드를 바탕으로 뉴스를 검색하여 리스트로 반환하는 메서드
      *
-     * @param userId 사용자 고유 ID
-     * @return 뉴스 리스트 {@code List<NewsEsDocument>}, 키워드가 없거나 오류 시 {@code null}
+     * Edit By : 성열
+     * When : 2025-07-20
+     * Why : 히스토리 DB에 2개의 세팅이 합쳐져서 뉴스가 발송되는 오류 해결
+     *
+     * Deprecated된 메서드는 하단에 정리하였습니다.
+     *
+     * @param userId 유저의 고유 번호
+     * @return 각 세팅에 맞는 뉴스 기사 리스4트
      */
-    private List<NewsEsDocument> getNewsEsDocumentList(Long userId) {
-
-        //유저 정보를 기준으로 Settig값 가져오기
+    private List<NewsEsDocument> getNewsEsDocumentList_Fixed(Long userId) {
         List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
-
-        List<String> keywords = new ArrayList<>();
-        List<String> blockKeywords = new ArrayList<>();
+        List<NewsEsDocument> totalNewsList = new ArrayList<>();
 
         for (SettingDTO setting : settings) {
             log.info("셋팅값 확인용 코드 : " + setting.getSettingKeywords());
             log.info("셋팅 제외 확인용 코드 : " + setting.getBlockKeywords());
 
-            // 키워드리스트의 null 값 체크
-            if (setting.getSettingKeywords() != null) {
-                keywords.add(setting.getSettingKeywords().toString());
+            List<String> keywords = setting.getSettingKeywords();  // 예: [이재명]
+            List<String> blockKeywords = setting.getBlockKeywords(); // 예: [한국, 중국]
+
+            if (keywords == null || keywords.isEmpty()) {
+                log.warn("세팅에 키워드가 없습니다. 스킵합니다.");
+                continue;
             }
 
-            blockKeywords.add(setting.getBlockKeywords().toString());
+            List<NewsEsDocument> newsList = newsService.searchNews(keywords, blockKeywords);
+
+            log.info(">> 세팅당 검색된 뉴스 수: {}", newsList.size());
+
+            // 세팅당 5개만 취하고 싶다면 limit 적용
+            if (newsList.size() > 5) {
+                newsList = newsList.subList(0, 5);
+            }
+
+            // 뉴스 히스토리 저장
+            saveHistory(newsList, List.of(setting)); // 단일 setting 기준
+
+            totalNewsList.addAll(newsList);
         }
 
-        if (keywords.isEmpty()) {
-            log.error("설정된 키워드가 없습니다.");
-            throw new KakaoException(ErrorCode.SETTING_NOT_FOUND);
-        }
-
-        //키워드별 뉴스 검색
-        List<NewsEsDocument> newsList = newsService.searchNews(keywords, blockKeywords);
-
-        log.info("검색된 뉴스 수: {}", newsList.size());
-        newsList.forEach(n -> log.info("뉴스: {} - {}", n.getPublisher(), n.getSummary()));
-
-        // 검색된 뉴스를 히스토리로 보내는 코드
-        if (saveHistory(newsList, settings)) return null;
-        return newsList;
+        log.info("✅ 전체 검색된 뉴스 총합: {}", totalNewsList.size());
+        return totalNewsList;
     }
 
     /**
@@ -250,5 +254,51 @@ public class KakaoMessageService {
 
         return saved;
     }
+
+    // ======================= Deprecated =========================
+    /* 오류 발생 */
+
+    /**
+     * 사용자의 Setting 정보를 기반으로 키워드에 해당하는 뉴스를 검색하여 반환합니다.
+     * 뉴스는 히스토리에 저장되며, 최대 5개까지 템플릿으로 전송됩니다.
+     *
+     * @param userId 사용자 고유 ID
+     * @return 뉴스 리스트 {@code List<NewsEsDocument>}, 키워드가 없거나 오류 시 {@code null}
+     */
+//    private List<NewsEsDocument> getNewsEsDocumentList(Long userId) {
+//
+//        //유저 정보를 기준으로 Settig값 가져오기
+//        List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
+//
+//        List<String> keywords = new ArrayList<>();
+//        List<String> blockKeywords = new ArrayList<>();
+//
+//        for (SettingDTO setting : settings) {
+//            log.info("셋팅값 확인용 코드 : " + setting.getSettingKeywords());
+//            log.info("셋팅 제외 확인용 코드 : " + setting.getBlockKeywords());
+//
+//            // 키워드리스트의 null 값 체크
+//            if (setting.getSettingKeywords() != null) {
+//                keywords.add(setting.getSettingKeywords().toString());
+//            }
+//
+//            blockKeywords.add(setting.getBlockKeywords().toString());
+//        }
+//
+//        if (keywords.isEmpty()) {
+//            log.error("설정된 키워드가 없습니다.");
+//            throw new KakaoException(ErrorCode.SETTING_NOT_FOUND);
+//        }
+//
+//        //키워드별 뉴스 검색
+//        List<NewsEsDocument> newsList = newsService.searchNews(keywords, blockKeywords);
+//
+//        log.info("검색된 뉴스 수: {}", newsList.size());
+//        newsList.forEach(n -> log.info("뉴스: {} - {}", n.getPublisher(), n.getSummary()));
+//
+//        // 검색된 뉴스를 히스토리로 보내는 코드
+//        if (saveHistory(newsList, settings)) return null;
+//        return newsList;
+//    }
 
 }

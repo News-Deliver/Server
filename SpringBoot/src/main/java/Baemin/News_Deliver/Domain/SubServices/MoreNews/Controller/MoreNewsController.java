@@ -62,8 +62,9 @@ public class MoreNewsController {
     @GetMapping("")
     public ResponseEntity<ApiResponseWrapper<List<GroupedNewsHistoryResponse>>> getNewsHistoryList(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size
+            @RequestParam(defaultValue = "3") int size
     ) {
+        // 내 히스토리 조회하기 서비스 레이어 호출
         List<GroupedNewsHistoryResponse> groupedList = moreNewsService.getGroupedNewsHistory(page, size);
 
         return ResponseEntity.ok(new ApiResponseWrapper<>(groupedList, "히스토리가 성공적으로 조회되었습니다."));

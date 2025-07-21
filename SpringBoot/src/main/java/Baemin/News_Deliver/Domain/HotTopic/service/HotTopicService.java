@@ -71,7 +71,7 @@ public class HotTopicService {
     public List<HotTopicResponseDTO> getHotTopicList() {
         long start = System.nanoTime();
         String cacheKey = "hottopic:daily";
-
+// 캐싱 때문에 발생하는 문제를 임시적으로 해결하기 위한 임시 주석 : 성열 7월 19일 토요일
         List<HotTopicResponseDTO> cached = (List<HotTopicResponseDTO>) redisTemplate.opsForValue().get(cacheKey);
         if (cached != null) {
             long end = System.nanoTime();
@@ -82,6 +82,8 @@ public class HotTopicService {
         LocalDate yesterday = LocalDate.now().minusDays(1);
         LocalDateTime startOfYesterday = yesterday.atStartOfDay();
         LocalDateTime endOfYesterday = yesterday.atTime(LocalTime.MAX);
+        log.info("startOfYesterday : {}", startOfYesterday);
+        log.info("endOfYesterday : {}", endOfYesterday);
 
         List<HotTopicResponseDTO> result = hotTopicRepository.findTop10ByTopicDateBetweenOrderByTopicRankAsc(startOfYesterday, endOfYesterday)
                 .stream()
