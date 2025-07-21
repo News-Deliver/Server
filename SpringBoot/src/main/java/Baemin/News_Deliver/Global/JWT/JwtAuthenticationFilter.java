@@ -137,6 +137,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
 
+
         // OAuth2 관련 경로 제외
         if (path.startsWith("/login/oauth2/") || path.startsWith("/oauth2/")) {
             return true;
@@ -179,5 +180,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         return false;
+
     }
 }

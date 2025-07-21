@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Setting 엔티티용 JPA Repository
@@ -29,4 +30,22 @@ public interface SettingRepository extends JpaRepository<Setting, Long> {
      */
     @Query("SELECT s FROM Setting s WHERE s.user = :user AND s.endDate > :now AND s.isDeleted = false")
     List<Setting> findActiveSettings(@Param("user") User user, @Param("now") LocalDateTime now);
+
+
+
+    /**
+     * ID를 기준으로 설정 정보를 조회하며, 연관된 요일 정보({@link Setting#getDays()})를 즉시 로딩합니다.
+     *
+     * <p>지연 로딩(Lazy)을 피하고, Setting과 Days를 함께 조회하기 위해 fetch join을 사용합니다.</p>
+     *
+     * @param id 설정의 ID
+     * @return {@link Setting} 엔티티 및 관련된 Days 리스트를 포함한 Optional 객체
+     */
+    @Query("""
+    SELECT s FROM Setting s
+    LEFT JOIN FETCH s.days
+    WHERE s.id = :id
+""")
+    Optional<Setting> findByIdWithDays(@Param("id") Long id);
+
 }

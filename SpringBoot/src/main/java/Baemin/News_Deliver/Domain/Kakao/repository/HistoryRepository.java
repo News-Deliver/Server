@@ -11,7 +11,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
-
+/**
+ * 유저에게 카카오톡으로 뉴스를 전달하면 기록되는
+ * 뉴스 전송 기록(History) 엔티티에 대한 JPA 리포지토리 인터페이스입니다.
+ */
 public interface HistoryRepository extends JpaRepository<History, Long> {
     boolean existsBySettingAndNews(Setting setting, News news);
 
