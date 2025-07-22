@@ -108,6 +108,9 @@ public class JwtTokenProvider {
      * @param token 검증할 JWT 토큰 문자열
      * @return 토큰 유효성 여부 (true: 유효, false: 무효)
      */
+
+
+
     public boolean validateToken(String token) {
         try {
             parseClaims(token);

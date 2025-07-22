@@ -235,6 +235,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                     "kakaoId", user.getKakaoId()
             ));
 
+
             String tokenJson = objectMapper.writeValueAsString(tokenData);
             String encodedToken = java.net.URLEncoder.encode(tokenJson, "UTF-8");
 
