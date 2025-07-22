@@ -74,6 +74,8 @@ public class BatchService {
             jobLauncher.run(newsDataSaveJob, params);
         }
 
+        intermediateBatchRedisService.flushIntermediateBatchKeys();
+
         long totalEnd = System.currentTimeMillis(); // 전체 끝 시간
         log.info("✅ 전체 섹션 배치 소요 시간: {} ms", (totalEnd - totalStart));
     }
