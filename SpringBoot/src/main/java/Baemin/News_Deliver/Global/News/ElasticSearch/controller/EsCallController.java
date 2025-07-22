@@ -3,9 +3,10 @@ package Baemin.News_Deliver.Global.News.ElasticSearch.controller;
 import Baemin.News_Deliver.Global.News.ElasticSearch.service.NewsEsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
@@ -23,7 +24,6 @@ import java.io.IOException;
  */
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/elasticsearch")
 public class EsCallController {
 
     private final NewsEsService newsEsService;
@@ -40,9 +40,10 @@ public class EsCallController {
             summary = "[관리자/테스트] 전날 뉴스 색인 실행",
             description = "전날 DB에서 뉴스 데이터를 불러와 섹션별로 Elasticsearch에 bulk 색인합니다. 테스트용 엔드포인트입니다."
     )
-    @ApiResponse(responseCode = "200", description = "색인 작업이 정상적으로 시작됨")
-    @GetMapping("/bulk")
-    public void bulk() throws IOException {
+    @ApiResponses(@ApiResponse(responseCode = "204", description = "설정 삭제 성공"))
+    @GetMapping("/api/admin/elasticsearch")
+    public ResponseEntity<Void> bulk() throws IOException {
         newsEsService.esBulkService();
+        return ResponseEntity.noContent().build();
     }
 }
