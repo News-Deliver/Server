@@ -194,6 +194,7 @@ public class KakaoMessageService {
             NewsEsDocument news = newsList.get(i);
             templateArgs.put("SUMMARY" + (i + 1), news.getSummary());
             templateArgs.put("PUBLISHER" + (i + 1), news.getPublisher());
+            templateArgs.put("CONTENTURL" + (i + 1), news.getContent_url());
         }
         return templateArgs;
 
