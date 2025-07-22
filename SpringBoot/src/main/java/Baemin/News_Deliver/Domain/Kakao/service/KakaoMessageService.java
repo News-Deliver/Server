@@ -85,48 +85,78 @@ public class KakaoMessageService {
         return accessToken;
     }
 
+
     /**
-     * 사용자의 키워드에 맞는 뉴스를 검색한 후, 카카오 메시지를 전송합니다.
+     * 카카오 메시지 전송 메서드
      *
-     * @param refreshAccessToken 사용자 카카오 Refresh Token
-     * @param userId             사용자 고유 ID
-     * @return 메시지 전송 성공 여부 (true: 성공, false: 실패)
+     * @param refreshAccessToken 유저의 리프레시 토큰
+     * @param userId 유저의 고유 번호
+     * @return T,F
      */
     public boolean sendKakaoMessage(String refreshAccessToken, Long userId) {
+
+        /* 유저의 세팅 리스트 반환 */
+        log.info("refreshAccessToken 발급 결과 :{}", refreshAccessToken);
+        String accessToken = getKakaoUserAccessToken(refreshAccessToken, userId);
+        log.info("accessToken 발급 결과:{}", accessToken);
+        List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
+        boolean anySuccess = false;
+
+        /* Setting을 순회하며 뉴스 리스트 저장&전송 */
+        for (SettingDTO setting : settings) {
+            List<NewsEsDocument> newsList = newsService.searchNews(
+                    setting.getSettingKeywords(), setting.getBlockKeywords());
+
+            if (newsList == null || newsList.isEmpty()) {
+                log.info("세팅 ID {}에 해당하는 뉴스가 없음", setting.getId());
+                continue;
+            }
+
+            if (newsList.size() > 5) {
+                newsList = newsList.subList(0, 5);
+            }
+
+            saveHistory(newsList, List.of(setting));
+            boolean success = sendSingleKakaoMessage(accessToken, newsList);
+            anySuccess = anySuccess || success;
+        }
+
+        return anySuccess;
+    }
+
+    /**
+     * 개별 카카오톡 전송 메섣,
+     *
+     * @param accessToken 유저 엑세스 토큰
+     * @param newsList 뉴스 리스트
+     * @return T,F
+     */
+    private boolean sendSingleKakaoMessage(String accessToken, List<NewsEsDocument> newsList) {
         try {
-            String accessToken = getKakaoUserAccessToken(refreshAccessToken, userId);
 
-            List<NewsEsDocument> newsList = getNewsEsDocumentList_Fixed(userId);
-
-            //뉴스가 없을 때 반환할 값을 고민 해볼 것.
-            if (newsList == null) new KakaoException(ErrorCode.NO_NEWS_DATA);;
-
-            // 헤더 설정
+            /*  헤더 설정 */
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.set("Authorization", "Bearer " + accessToken);
 
-            // 템플릿 설정(ES로 검색한 뉴스 리스트 넘겨받음)
+            /* 템플릿 설정 */
             Map<String, String> templateArgs = createTemplateData(newsList);
-
-            // JSON 문자열로 변환
             ObjectMapper objectMapper = new ObjectMapper();
             String templateArgsJson = objectMapper.writeValueAsString(templateArgs);
 
-            // 요청 파라미터 구성
             MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
             params.add("template_id", "122080");
             params.add("template_args", templateArgsJson);
 
+            /* 세팅 별 개별 메시지 전송 */
             HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(params, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(KAKAO_SEND_TOME_URL, entity, String.class);
-
             log.info("카카오 메시지 전송 응답: {}", response.getBody());
-            return response.getStatusCode() == HttpStatus.OK;
 
+            return response.getStatusCode() == HttpStatus.OK;
         } catch (Exception e) {
             log.error("카카오 메시지 전송 실패: ", e);
-            throw new KakaoException(ErrorCode.MESSAGE_SEND_FAILED);
+            return false;
         }
     }
 
@@ -140,7 +170,7 @@ public class KakaoMessageService {
      * Deprecated된 메서드는 하단에 정리하였습니다.
      *
      * @param userId 유저의 고유 번호
-     * @return 각 세팅에 맞는 뉴스 기사 리스4트
+     * @return 각 세팅에 맞는 뉴스 기사 리스트
      */
     private List<NewsEsDocument> getNewsEsDocumentList_Fixed(Long userId) {
         List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
@@ -257,15 +287,63 @@ public class KakaoMessageService {
     }
 
     // ======================= Deprecated =========================
-    /* 오류 발생 */
 
-    /**
-     * 사용자의 Setting 정보를 기반으로 키워드에 해당하는 뉴스를 검색하여 반환합니다.
-     * 뉴스는 히스토리에 저장되며, 최대 5개까지 템플릿으로 전송됩니다.
-     *
-     * @param userId 사용자 고유 ID
-     * @return 뉴스 리스트 {@code List<NewsEsDocument>}, 키워드가 없거나 오류 시 {@code null}
-     */
+//    /**
+//     * 사용자의 키워드에 맞는 뉴스를 검색한 후, 카카오 메시지를 전송합니다.
+//     *
+//     * @param refreshAccessToken 사용자 카카오 Refresh Token
+//     * @param userId             사용자 고유 ID
+//     * @return 메시지 전송 성공 여부 (true: 성공, false: 실패)
+//     */
+//    public boolean sendKakaoMessage(String refreshAccessToken, Long userId) {
+//        try {
+//
+//            /**
+//             * 문제 정의 : 세팅 1번에 대해서만 메시지가 전송된다.
+//             */
+//
+//            /* 유저에게 맞는 뉴스 리스트 검색*/
+//            String accessToken = getKakaoUserAccessToken(refreshAccessToken, userId);
+//            List<NewsEsDocument> newsList = getNewsEsDocumentList_Fixed(userId);
+//            if (newsList == null) new KakaoException(ErrorCode.NO_NEWS_DATA);;
+//
+//            /* Http 요청 헤더 설정 */
+//            HttpHeaders headers = new HttpHeaders();
+//            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+//            headers.set("Authorization", "Bearer " + accessToken);
+//
+//            /* 템플릿 설정(ES로 검색한 뉴스 리스트 넘겨받음) */
+//            Map<String, String> templateArgs = createTemplateData(newsList);
+//
+//            /* JSON 문자열로 변환 */
+//            ObjectMapper objectMapper = new ObjectMapper();
+//            String templateArgsJson = objectMapper.writeValueAsString(templateArgs);
+//
+//            /* 요청 파라미터 구성 */
+//            MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+//            params.add("template_id", "122080");
+//            params.add("template_args", templateArgsJson);
+//
+//            /* 카카오 메시지 전송 */
+//            HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(params, headers);
+//            ResponseEntity<String> response = restTemplate.postForEntity(KAKAO_SEND_TOME_URL, entity, String.class);
+//            log.info("카카오 메시지 전송 응답: {}", response.getBody());
+//
+//            return response.getStatusCode() == HttpStatus.OK;
+//
+//        } catch (Exception e) {
+//            log.error("카카오 메시지 전송 실패: ", e);
+//            throw new KakaoException(ErrorCode.MESSAGE_SEND_FAILED);
+//        }
+//    }
+
+//    /**
+//     * 사용자의 Setting 정보를 기반으로 키워드에 해당하는 뉴스를 검색하여 반환합니다.
+//     * 뉴스는 히스토리에 저장되며, 최대 5개까지 템플릿으로 전송됩니다.
+//     *
+//     * @param userId 사용자 고유 ID
+//     * @return 뉴스 리스트 {@code List<NewsEsDocument>}, 키워드가 없거나 오류 시 {@code null}
+//     */
 //    private List<NewsEsDocument> getNewsEsDocumentList(Long userId) {
 //
 //        //유저 정보를 기준으로 Settig값 가져오기
