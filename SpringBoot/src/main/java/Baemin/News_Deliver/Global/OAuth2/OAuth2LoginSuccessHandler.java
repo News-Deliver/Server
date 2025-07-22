@@ -238,10 +238,14 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             String tokenJson = objectMapper.writeValueAsString(tokenData);
             String encodedToken = java.net.URLEncoder.encode(tokenJson, "UTF-8");
 
-            return "/?token=" + encodedToken;
+            return "https://likelionnews.click/?token=" + encodedToken;
+//              로컬용
+//            return "http://localhost:5173/?token=" + encodedToken;
         } catch (Exception e) {
             log.error("리다이렉트 URL 생성 실패: {}", e.getMessage());
-            return "/?error=true";
+            return "https://likelionnews.click/?error=true";
+//            로컬용
+//            return "/?error=true";
         }
     }
 
