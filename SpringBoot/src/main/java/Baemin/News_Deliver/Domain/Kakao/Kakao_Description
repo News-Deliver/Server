@@ -4,3 +4,9 @@
 
 ## 기능 설명
 
+## TODO
+Class : KakaoMessgaeService
+Method : sendKakaoMessage
+Problem : 메시지를 전송하는 메서드인데, 만약 유저의 요구사항에 맞는 뉴스 기사가 없는 경우
+How : 전날의 데이터에서 5개가 안나오면, 2~3일 전 데이터까지 조회하는 방법으로 해결
+
