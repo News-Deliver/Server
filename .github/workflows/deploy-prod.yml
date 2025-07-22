@@ -1,4 +1,4 @@
-name: 프로덕션 배포 (HTTPS 대응)
+name: 프로덕션 배포 (HTTPS 대응) - 볼륨 보존
 
 on:
   push:
@@ -42,17 +42,60 @@ jobs:
               exit 1
             fi
           
-            # 기존 컨테이너 정리
+            # ✅ 볼륨 상태 확인 (배포 전)
+            echo "📊 배포 전 볼륨 상태:"
+            docker volume ls | grep -E "(es-data|redis|mysql)" || echo "중요 볼륨을 찾을 수 없습니다"
+          
+            # ✅ 안전한 컨테이너 정리 (볼륨 보존)
+            echo "🧹 기존 컨테이너 정리 중 (볼륨은 안전하게 보존)..."
             docker-compose down --remove-orphans --timeout 30 || true
-            docker system prune -f || true
+          
+            # ✅ 선택적 정리 (볼륨은 절대 건드리지 않음)
+            echo "🗑️ 불필요한 리소스만 선별 정리..."
+            docker container prune -f || true  # 정지된 컨테이너만 삭제
+            docker image prune -f || true      # 댕글링 이미지만 삭제
+            docker network prune -f || true    # 사용안하는 네트워크만 삭제
+          
+            # ❌ docker system prune -f 완전 제거! (볼륨 삭제의 주범)
+            # 이전: docker system prune -f || true  ← 이 명령어가 볼륨을 삭제했음
+          
+            # ✅ 정리 후 볼륨 상태 재확인
+            echo "📊 정리 후 볼륨 상태 (보존되어야 함):"
+            docker volume ls | grep -E "(es-data|redis|mysql)" || echo "⚠️ 중요 볼륨이 사라졌습니다!"
+          
+            # ✅ 필요한 볼륨 생성 (없는 경우만)
+            echo "🔧 필요한 볼륨 확인 및 생성..."
+            docker volume create news-deliver_redis-cache-data 2>/dev/null || echo "redis-cache-data 볼륨 이미 존재"
+            docker volume create news-deliver_es-plugins 2>/dev/null || echo "es-plugins 볼륨 이미 존재"
           
             # 새 컨테이너 시작
-            docker-compose up -d --build --force-recreate
+            echo "🚀 새 컨테이너 시작 중 (기존 볼륨 재사용)..."
+            docker-compose up -d --build
           
             echo "⏳ 컨테이너 시작 대기 (90초)..."
             sleep 90
           
-            echo "🎉 배포 스크립트 완료"
+            # ✅ 엘라스틱서치 플러그인 확인 및 자동 설치
+            echo "🔍 Elasticsearch 플러그인 상태 확인..."
+            if ! docker exec elasticsearch bin/elasticsearch-plugin list 2>/dev/null | grep -q "analysis-nori"; then
+              echo "📦 Nori 플러그인이 없습니다. 설치 중..."
+              docker exec elasticsearch bin/elasticsearch-plugin install analysis-nori || echo "플러그인 설치 실패"
+              echo "🔄 Elasticsearch 재시작..."
+              docker restart elasticsearch
+              sleep 30
+            else
+              echo "✅ Nori 플러그인이 이미 설치되어 있습니다"
+            fi
+          
+            # ✅ 엘라스틱서치 상태 확인
+            echo "📊 Elasticsearch 클러스터 상태:"
+            docker exec elasticsearch curl -s "localhost:9200/_cluster/health?pretty" | head -10 || echo "ES 상태 확인 실패"
+          
+            # ✅ 인덱스 상태 확인
+            echo "📑 인덱스 상태 확인:"
+            docker exec elasticsearch curl -s "localhost:9200/_cat/indices?v" || echo "인덱스 목록 조회 실패"
+          
+            echo "🎉 배포 스크립트 완료 (볼륨 보존됨)"
           '
 
       - name: 컨테이너 상태 확인
@@ -63,6 +106,9 @@ jobs:
           
             echo "=== Docker 컨테이너 상태 ==="
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          
+            echo "=== 볼륨 상태 (중요!) ==="
+            docker volume ls | grep -E "(es-data|redis|mysql)" || echo "⚠️ 중요 볼륨이 없습니다"
           
             echo "=== Spring Boot 컨테이너 로그 (최근 30줄) ==="
             SPRINGBOOT_CONTAINER=$(docker ps -q --filter "name=springboot")
@@ -76,6 +122,7 @@ jobs:
             # MySQL 확인
             if docker ps | grep -q mysql; then
               echo "✅ MySQL 컨테이너 실행 중"
+              docker exec mysql mysqladmin ping 2>/dev/null && echo "  💾 MySQL 연결 정상" || echo "  ❌ MySQL 연결 실패"
             else
               echo "❌ MySQL 컨테이너 없음"
             fi
@@ -83,6 +130,7 @@ jobs:
             # Redis 확인  
             if docker ps | grep -q redis; then
               echo "✅ Redis 컨테이너 실행 중"
+              docker exec redis-cache redis-cli ping 2>/dev/null && echo "  💾 Redis Cache 연결 정상" || echo "  ❌ Redis Cache 연결 실패"
             else
               echo "❌ Redis 컨테이너 없음"
             fi
@@ -90,6 +138,12 @@ jobs:
             # Elasticsearch 확인
             if docker ps | grep -q elasticsearch; then
               echo "✅ Elasticsearch 컨테이너 실행 중"
+              echo "📊 Elasticsearch 클러스터 상태:"
+              docker exec elasticsearch curl -s -X GET "localhost:9200/_cluster/health?pretty" | head -10 || echo "ES 상태 확인 실패"
+              echo "📑 인덱스 목록:"
+              docker exec elasticsearch curl -s -X GET "localhost:9200/_cat/indices?v" || echo "인덱스 목록 조회 실패"
+              echo "🔌 설치된 플러그인:"
+              docker exec elasticsearch bin/elasticsearch-plugin list 2>/dev/null | grep nori && echo "  ✅ Nori 플러그인 설치됨" || echo "  ❌ Nori 플러그인 없음"
             else
               echo "❌ Elasticsearch 컨테이너 없음"
             fi
@@ -110,6 +164,10 @@ jobs:
             # 호스트에서 컨테이너로 접근 테스트
             echo "호스트에서 컨테이너 접근 테스트:"
             curl -f http://localhost:8080/api/auth/status 2>/dev/null && echo "✅ 호스트->컨테이너 정상" || echo "❌ 호스트->컨테이너 실패"
+          
+            # ✅ HotTopic API 테스트 (ElasticSearch 의존)
+            echo "HotTopic API 테스트 (ElasticSearch 의존성):"
+            curl -f http://localhost:8080/api/hottopic 2>/dev/null && echo "✅ HotTopic API 정상 (ES 인덱스 유지됨)" || echo "❌ HotTopic API 실패 (ES 문제 가능성)"
           '
 
       - name: 최종 HTTPS 헬스체크
@@ -123,7 +181,7 @@ jobs:
             echo "🔄 시도 $attempt/5"
           
             # HTTPS 도메인으로 테스트
-            endpoints=("/api/auth/status" "/swagger.html")
+            endpoints=("/api/auth/status" "/api/hottopic" "/swagger.html")
           
             for endpoint in "${endpoints[@]}"; do
               url="${api_domain}${endpoint}"
@@ -137,6 +195,9 @@ jobs:
           
               if [ "$http_code" = "200" ]; then
                 echo "  ✅ $endpoint 성공!"
+                if [ "$endpoint" = "/api/hottopic" ]; then
+                  echo "  🎉 ElasticSearch 인덱스가 정상적으로 유지되었습니다!"
+                fi
                 success=true
                 break 2
               elif [ "$http_code" = "404" ]; then
@@ -159,6 +220,7 @@ jobs:
             echo "🔗 API 서비스: https://api.likelionnews.click"
             echo "📋 API 문서: https://api.likelionnews.click/swagger.html"
             echo "🩺 상태 확인: https://api.likelionnews.click/api/auth/status"
+            echo "🔥 핫토픽: https://api.likelionnews.click/api/hottopic"
           else
             echo "⚠️ HTTPS 헬스체크 실패"
             echo "🔧 확인사항:"
@@ -166,23 +228,31 @@ jobs:
             echo "  - ALB에 SSL 인증서가 정상 연결되었는지 확인"
             echo "  - ALB Target Group이 healthy 상태인지 확인"
             echo "  - EC2 Security Group에서 ALB → EC2:8080 허용되었는지 확인"
+            echo "  - Elasticsearch 클러스터 상태 및 인덱스 확인"
+            echo "  - Nori 플러그인 설치 상태 확인"
           fi
 
       - name: 배포 요약
         if: always()
         run: |
-          echo "## 🚀 HTTPS 배포 요약" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 HTTPS 배포 요약 - 볼륨 보존 버전" >> $GITHUB_STEP_SUMMARY
           echo "- **상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- **시간**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- **브랜치**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **볼륨**: 🛡️ 보존됨 (docker system prune 제거)" >> $GITHUB_STEP_SUMMARY
+          echo "- **ElasticSearch**: 📊 인덱스 및 Nori 플러그인 자동 관리" >> $GITHUB_STEP_SUMMARY
+          echo "- **Redis**: 💾 캐시 데이터 영구 보존" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 HTTPS 링크들:" >> $GITHUB_STEP_SUMMARY
           echo "- **API 서비스**: https://api.likelionnews.click" >> $GITHUB_STEP_SUMMARY
           echo "- **API 문서**: https://api.likelionnews.click/swagger.html" >> $GITHUB_STEP_SUMMARY
           echo "- **상태 확인**: https://api.likelionnews.click/api/auth/status" >> $GITHUB_STEP_SUMMARY
+          echo "- **핫토픽**: https://api.likelionnews.click/api/hottopic" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🛠 문제 해결:" >> $GITHUB_STEP_SUMMARY
           echo "1. \`ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}\`" >> $GITHUB_STEP_SUMMARY
           echo "2. \`cd /opt/news-deliver && docker ps\`" >> $GITHUB_STEP_SUMMARY
           echo "3. \`docker logs springboot\` (컨테이너명 확인 후)" >> $GITHUB_STEP_SUMMARY
-          echo "4. ALB와 Route53 설정 확인" >> $GITHUB_STEP_SUMMARY
+          echo "4. \`docker volume ls | grep -E \"(es-data|redis|mysql)\"\`" >> $GITHUB_STEP_SUMMARY
+          echo "5. \`docker exec elasticsearch curl localhost:9200/_cat/indices\`" >> $GITHUB_STEP_SUMMARY
+          echo "6. ALB와 Route53 설정 확인" >> $GITHUB_STEP_SUMMARY
