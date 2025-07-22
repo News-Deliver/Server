@@ -1,6 +1,7 @@
 package Baemin.News_Deliver.Domain.SubServices.MoreNews.Controller;
 
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.GroupedNewsHistoryResponse;
+import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.PageResponse;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.Service.MoreNewsService;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -60,12 +62,13 @@ public class MoreNewsController {
                     @ApiResponse(responseCode = "500",description = "서버 내부 오류 발생")
             })
     @GetMapping("")
-    public ResponseEntity<ApiResponseWrapper<List<GroupedNewsHistoryResponse>>> getNewsHistoryList(
+    public ResponseEntity<ApiResponseWrapper<PageResponse<GroupedNewsHistoryResponse>>> getNewsHistoryList(
+            Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "3") int size
     ) {
         // 내 히스토리 조회하기 서비스 레이어 호출
-        List<GroupedNewsHistoryResponse> groupedList = moreNewsService.getGroupedNewsHistory(page, size);
+        PageResponse<GroupedNewsHistoryResponse> groupedList  = moreNewsService.getGroupedNewsHistory(page, size, authentication);
 
         return ResponseEntity.ok(new ApiResponseWrapper<>(groupedList, "히스토리가 성공적으로 조회되었습니다."));
     }
