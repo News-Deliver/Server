@@ -33,12 +33,6 @@ public class SettingController {
     private final SettingService settingService;
     private final AuthService authService;
 
-    /**
-     * 현재 사용자의 모든 설정 조회
-     *
-     * @param authentication 인증 객체 (JWT 토큰에서 추출)
-     * @return 설정 리스트
-     */
     @GetMapping
     @Operation(summary = "내 뉴스 설정 목록 조회", description = "현재 로그인한 사용자의 모든 뉴스 설정을 조회합니다.")
     @SecurityRequirement(name = "Bearer Authentication")
@@ -48,21 +42,10 @@ public class SettingController {
             @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
     })
     public ResponseEntity<List<SettingDTO>> getAllSetting(Authentication authentication) {
-        try {
-            // 인증 객체에서 카카오 ID 추출
-            String kakaoId = authentication.getName();
-
-            // 카카오 ID로 사용자 조회 (인증 실패 예외 처리)
-            Long userId = authService.findByKakaoId(kakaoId).getId();
-
-            List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
-            return ResponseEntity.ok(settings);
-
-        } catch (Exception e) {
-            log.error("설정 목록 조회 실패: kakaoId={}, error={}",
-                    authentication.getName(), e.getMessage());
-            throw new SettingException(ErrorCode.USER_NOT_FOUND);
-        }
+        String kakaoId = authentication.getName();
+        Long userId = authService.findByKakaoId(kakaoId).getId();
+        List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
+        return ResponseEntity.ok(settings);
     }
 
     /**
@@ -83,22 +66,11 @@ public class SettingController {
     })
     public ResponseEntity<Long> saveSetting(@RequestBody SettingDTO settingDTO,
                                             Authentication authentication) {
-        try {
-            // 인증 객체에서 카카오 ID 추출
-            String kakaoId = authentication.getName();
-
-            // 카카오 ID로 사용자 조회하여 DTO에 설정 (인증 실패 예외 처리)
-            Long userId = authService.findByKakaoId(kakaoId).getId();
-            settingDTO.setUserId(userId);
-
-            Long settingId = settingService.saveSetting(settingDTO);
-            return ResponseEntity.ok(settingId);
-
-        } catch (Exception e) {
-            log.error("설정 저장 실패: kakaoId={}, error={}",
-                    authentication.getName(), e.getMessage());
-            throw new SettingException(ErrorCode.SETTING_CREATION_FAILED);
-        }
+        String kakaoId = authentication.getName();
+        Long userId = authService.findByKakaoId(kakaoId).getId();
+        settingDTO.setUserId(userId);
+        Long settingId = settingService.saveSetting(settingDTO);
+        return ResponseEntity.ok(settingId);
     }
 
     /**
@@ -120,22 +92,11 @@ public class SettingController {
     })
     public ResponseEntity<Void> updateSetting(@RequestBody SettingDTO settingDTO,
                                               Authentication authentication) {
-        try {
-            // 인증 객체에서 카카오 ID 추출
-            String kakaoId = authentication.getName();
-
-            // 카카오 ID로 사용자 조회하여 DTO에 설정 (인증 실패 예외 처리)
-            Long userId = authService.findByKakaoId(kakaoId).getId();
-            settingDTO.setUserId(userId);
-
-            settingService.updateSetting(settingDTO);
-            return ResponseEntity.noContent().build();
-
-        } catch (Exception e) {
-            log.error("설정 수정 실패: kakaoId={}, error={}",
-                    authentication.getName(), e.getMessage());
-            throw new SettingException(ErrorCode.SETTING_UPDATE_FAILED);
-        }
+        String kakaoId = authentication.getName();
+        Long userId = authService.findByKakaoId(kakaoId).getId();
+        settingDTO.setUserId(userId);
+        settingService.updateSetting(settingDTO);
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -156,10 +117,8 @@ public class SettingController {
     })
     public ResponseEntity<Void> deleteSetting(@PathVariable("id") Long id,
                                               Authentication authentication) {
-
         String kakaoId = authentication.getName();
         Long userId = authService.findByKakaoId(kakaoId).getId();
-
         settingService.deleteSetting(id, userId);
         return ResponseEntity.noContent().build();
     }

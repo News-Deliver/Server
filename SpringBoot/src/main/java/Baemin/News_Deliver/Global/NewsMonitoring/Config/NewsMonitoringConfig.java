@@ -15,6 +15,8 @@ import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
+import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.support.ListItemReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -145,21 +147,18 @@ public class NewsMonitoringConfig {
     @Bean
     public ItemWriter<News> newsWriter_Monitoring(javax.sql.DataSource dataSource) {
 
-        return items -> {
-            log.info("[임시 로직] 실제 저장하지는 않지만, newsWriter_Monitoring 기능 정상 작동 - 전체 뉴스 개수: {}", items.size());
-        };
 
         /* 실제 DB 저장 로직 */
-//        JdbcBatchItemWriter<News> writer = new JdbcBatchItemWriter<>();
-//        writer.setDataSource(dataSource);
-//        writer.setSql("""
-//        INSERT INTO news (title, summary, content_url, published_at, send, sections, publisher)
-//        VALUES (:title, :summary, :contentUrl, :publishedAt, :send, :sections, :publisher)
-//    """);
-//
-//        writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>());
-//        writer.afterPropertiesSet(); // 설정 검증 필수
-//
-//        return writer;
+        JdbcBatchItemWriter<News> writer = new JdbcBatchItemWriter<>();
+        writer.setDataSource(dataSource);
+        writer.setSql("""
+        INSERT INTO news (title, summary, content_url, published_at, send, sections, publisher)
+        VALUES (:title, :summary, :contentUrl, :publishedAt, :send, :sections, :publisher)
+    """);
+
+        writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>());
+        writer.afterPropertiesSet(); // 설정 검증 필수
+
+        return writer;
     }
 }
