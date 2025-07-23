@@ -48,6 +48,7 @@ public class SecurityConfig {
                         //  공개 접근 허용 (인증 불필요)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/").permitAll()
+                        .requestMatchers("/redirect").permitAll() // 유저가 카카오톡 메시지 클릭 시, 호출하는 API (항상 열어놔야 함)
                         .requestMatchers("/api/auth/status").permitAll()
                         .requestMatchers("/login/oauth2/**").permitAll()
                         .requestMatchers("/oauth2/**").permitAll()
