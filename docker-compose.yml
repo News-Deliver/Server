@@ -41,8 +41,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     depends_on:
-      mysql:
-        condition: service_healthy
+      # mysql 의존성 제거 - RDS 사용으로 인해 불필요
       redis-cache:
         condition: service_started
       redis-session1:
@@ -52,33 +51,33 @@ services:
     networks:
       - backend
 
-  mysql:
-    image: mysql:8.0
-    container_name: mysql
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    environment:
-      - TZ=Asia/Seoul
-      - MYSQL_ROOT_PASSWORD=${DB_PASS}
-      - MYSQL_DATABASE=backendDB
-    command: ["mysqld", "--default-time-zone=+09:00"]
-    ports:
-      - "3306:3306"
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
-    networks:
-      - backend
-
+  # MySQL 서비스 제거 - RDS 사용
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: mysql
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
+  #   environment:
+  #     - TZ=Asia/Seoul
+  #     - MYSQL_ROOT_PASSWORD=${DB_PASS}
+  #     - MYSQL_DATABASE=backendDB
+  #   command: ["mysqld", "--default-time-zone=+09:00"]
+  #   ports:
+  #     - "3306:3306"
+  #   healthcheck:
+  #     test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   volumes:
+  #     - mysql-data:/var/lib/mysql
+  #     - /etc/localtime:/etc/localtime:ro
+  #     - /etc/timezone:/etc/timezone:ro
+  #   networks:
+  #     - backend
 
   redis-cache:
     image: redis:7.2
@@ -167,6 +166,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
 
+  # Prometheus/Grafana - 메모리 부하로 인해 주석 처리 (CloudWatch 사용 예정)
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -245,16 +245,15 @@ services:
     networks:
       - backend
 
-
 volumes:
-  mysql-data:
+  # mysql-data: # RDS 사용으로 인해 불필요
   redis-cache-data:
   redis-session1-data:
   redis-session2-data:
   es-data:
   es-plugins:
-  prometheus-data:
-  grafana-data:
+  prometheus-data: # Prometheus 제거로 인해 불필요
+  grafana-data: # Grafana 제거로 인해 불필요
 
 networks:
   backend:
