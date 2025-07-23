@@ -145,7 +145,8 @@ public class KakaoMessageService {
             String templateArgsJson = objectMapper.writeValueAsString(templateArgs);
 
             MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-            params.add("template_id", "122080");
+            // params.add("template_id", "122080");
+            params.add("template_id", "122693");
             params.add("template_args", templateArgsJson);
 
             /* 세팅 별 개별 메시지 전송 */
@@ -222,9 +223,11 @@ public class KakaoMessageService {
         //메세지 5개 고정
         for (int i = 0; i < Math.min(5, newsList.size()); i++) {
             NewsEsDocument news = newsList.get(i);
+            templateArgs.put("TITLE" + (i + 1), news.getTitle());
             templateArgs.put("SUMMARY" + (i + 1), news.getSummary());
             templateArgs.put("PUBLISHER" + (i + 1), news.getPublisher());
-            templateArgs.put("CONTENTURL" + (i + 1), news.getContent_url());
+            templateArgs.put("CONTENTURL" + (i + 1), "redirect?target=" + news.getContent_url());
+            // templateArgs.put("CONTENTURL" + (i + 1), news.getContent_url());
         }
         return templateArgs;
 
