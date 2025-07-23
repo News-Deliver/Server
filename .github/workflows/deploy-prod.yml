@@ -1,4 +1,4 @@
-name: 프로덕션 배포 (HTTPS 대응) - 볼륨 보존
+name: 프로덕션 배포 (HTTPS 대응) - RDS 사용
 
 on:
   push:
@@ -42,9 +42,9 @@ jobs:
               exit 1
             fi
           
-            # ✅ 볼륨 상태 확인 (배포 전)
+            # ✅ 볼륨 상태 확인 (배포 전) - MySQL 제외
             echo "📊 배포 전 볼륨 상태:"
-            docker volume ls | grep -E "(es-data|redis|mysql)" || echo "중요 볼륨을 찾을 수 없습니다"
+            docker volume ls | grep -E "(es-data|redis)" || echo "중요 볼륨을 찾을 수 없습니다"
           
             # ✅ 안전한 컨테이너 정리 (볼륨 보존)
             echo "🧹 기존 컨테이너 정리 중 (볼륨은 안전하게 보존)..."
@@ -59,9 +59,9 @@ jobs:
             # ❌ docker system prune -f 완전 제거! (볼륨 삭제의 주범)
             # 이전: docker system prune -f || true  ← 이 명령어가 볼륨을 삭제했음
           
-            # ✅ 정리 후 볼륨 상태 재확인
+            # ✅ 정리 후 볼륨 상태 재확인 - MySQL 제외
             echo "📊 정리 후 볼륨 상태 (보존되어야 함):"
-            docker volume ls | grep -E "(es-data|redis|mysql)" || echo "⚠️ 중요 볼륨이 사라졌습니다!"
+            docker volume ls | grep -E "(es-data|redis)" || echo "⚠️ 중요 볼륨이 사라졌습니다!"
           
             # ✅ 필요한 볼륨 생성 (없는 경우만)
             echo "🔧 필요한 볼륨 확인 및 생성..."
@@ -95,7 +95,7 @@ jobs:
             echo "📑 인덱스 상태 확인:"
             docker exec elasticsearch curl -s "localhost:9200/_cat/indices?v" || echo "인덱스 목록 조회 실패"
           
-            echo "🎉 배포 스크립트 완료 (볼륨 보존됨)"
+            echo "🎉 배포 스크립트 완료 (RDS 사용, 볼륨 보존됨)"
           '
 
       - name: 컨테이너 상태 확인
@@ -107,8 +107,8 @@ jobs:
             echo "=== Docker 컨테이너 상태 ==="
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
           
-            echo "=== 볼륨 상태 (중요!) ==="
-            docker volume ls | grep -E "(es-data|redis|mysql)" || echo "⚠️ 중요 볼륨이 없습니다"
+            echo "=== 볼륨 상태 (중요!) - MySQL 제외 ==="
+            docker volume ls | grep -E "(es-data|redis)" || echo "⚠️ 중요 볼륨이 없습니다"
           
             echo "=== Spring Boot 컨테이너 로그 (최근 30줄) ==="
             SPRINGBOOT_CONTAINER=$(docker ps -q --filter "name=springboot")
@@ -119,12 +119,10 @@ jobs:
             fi
           
             echo "=== 주요 서비스 상태 확인 ==="
-            # MySQL 확인
-            if docker ps | grep -q mysql; then
-              echo "✅ MySQL 컨테이너 실행 중"
-              docker exec mysql mysqladmin ping 2>/dev/null && echo "  💾 MySQL 연결 정상" || echo "  ❌ MySQL 연결 실패"
-            else
-              echo "❌ MySQL 컨테이너 없음"
+            # RDS 연결 확인 (Spring Boot 로그를 통해)
+            echo "🔌 RDS 연결 상태 확인:"
+            if [ ! -z "$SPRINGBOOT_CONTAINER" ]; then
+              docker logs $SPRINGBOOT_CONTAINER 2>&1 | grep -i "database\|connection\|rds" | tail -5 && echo "  📊 RDS 연결 로그 확인됨" || echo "  ⚠️ RDS 연결 로그 없음 (정상일 수 있음)"
             fi
           
             # Redis 확인  
@@ -158,7 +156,7 @@ jobs:
             SPRINGBOOT_CONTAINER=$(docker ps -q --filter "name=springboot")
             if [ ! -z "$SPRINGBOOT_CONTAINER" ]; then
               echo "Spring Boot 내부 헬스체크:"
-              docker exec $SPRINGBOOT_CONTAINER curl -f http://localhost:8080/api/auth/status 2>/dev/null && echo "✅ 내부 API 정상" || echo "❌ 내부 API 실패"
+              docker exec $SPRINGBOOT_CONTAINER curl -f http://localhost:8080/api/auth/status 2>/dev/null && echo "✅ 내부 API 정상 (RDS 연결 포함)" || echo "❌ 내부 API 실패 (RDS 연결 문제 가능성)"
             fi
           
             # 호스트에서 컨테이너로 접근 테스트
@@ -198,6 +196,9 @@ jobs:
                 if [ "$endpoint" = "/api/hottopic" ]; then
                   echo "  🎉 ElasticSearch 인덱스가 정상적으로 유지되었습니다!"
                 fi
+                if [ "$endpoint" = "/api/auth/status" ]; then
+                  echo "  🎉 RDS 연결이 정상적으로 작동합니다!"
+                fi
                 success=true
                 break 2
               elif [ "$http_code" = "404" ]; then
@@ -221,6 +222,7 @@ jobs:
             echo "📋 API 문서: https://api.likelionnews.click/swagger.html"
             echo "🩺 상태 확인: https://api.likelionnews.click/api/auth/status"
             echo "🔥 핫토픽: https://api.likelionnews.click/api/hottopic"
+            echo "💾 데이터베이스: AWS RDS 연결"
           else
             echo "⚠️ HTTPS 헬스체크 실패"
             echo "🔧 확인사항:"
@@ -228,6 +230,7 @@ jobs:
             echo "  - ALB에 SSL 인증서가 정상 연결되었는지 확인"
             echo "  - ALB Target Group이 healthy 상태인지 확인"
             echo "  - EC2 Security Group에서 ALB → EC2:8080 허용되었는지 확인"
+            echo "  - RDS Security Group에서 EC2 → RDS:3306 허용되었는지 확인"
             echo "  - Elasticsearch 클러스터 상태 및 인덱스 확인"
             echo "  - Nori 플러그인 설치 상태 확인"
           fi
@@ -235,11 +238,12 @@ jobs:
       - name: 배포 요약
         if: always()
         run: |
-          echo "## 🚀 HTTPS 배포 요약 - 볼륨 보존 버전" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 HTTPS 배포 요약 - RDS 사용" >> $GITHUB_STEP_SUMMARY
           echo "- **상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- **시간**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- **브랜치**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **볼륨**: 🛡️ 보존됨 (docker system prune 제거)" >> $GITHUB_STEP_SUMMARY
+          echo "- **데이터베이스**: 🗄️ AWS RDS (Docker MySQL 제거)" >> $GITHUB_STEP_SUMMARY
+          echo "- **볼륨**: 🛡️ ElasticSearch/Redis 볼륨 보존됨" >> $GITHUB_STEP_SUMMARY
           echo "- **ElasticSearch**: 📊 인덱스 및 Nori 플러그인 자동 관리" >> $GITHUB_STEP_SUMMARY
           echo "- **Redis**: 💾 캐시 데이터 영구 보존" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -253,6 +257,7 @@ jobs:
           echo "1. \`ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}\`" >> $GITHUB_STEP_SUMMARY
           echo "2. \`cd /opt/news-deliver && docker ps\`" >> $GITHUB_STEP_SUMMARY
           echo "3. \`docker logs springboot\` (컨테이너명 확인 후)" >> $GITHUB_STEP_SUMMARY
-          echo "4. \`docker volume ls | grep -E \"(es-data|redis|mysql)\"\`" >> $GITHUB_STEP_SUMMARY
+          echo "4. \`docker volume ls | grep -E \"(es-data|redis)\"\`" >> $GITHUB_STEP_SUMMARY
           echo "5. \`docker exec elasticsearch curl localhost:9200/_cat/indices\`" >> $GITHUB_STEP_SUMMARY
           echo "6. ALB와 Route53 설정 확인" >> $GITHUB_STEP_SUMMARY
+          echo "7. RDS 연결 및 보안 그룹 확인" >> $GITHUB_STEP_SUMMARY
