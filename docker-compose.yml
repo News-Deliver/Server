@@ -5,6 +5,13 @@ services:
       context: ./SpringBoot
       dockerfile: Dockerfile
     container_name: springboot
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
     environment:
       - TZ=Asia/Seoul
       - SPRING_PROFILES_ACTIVE=dev
@@ -25,6 +32,9 @@ services:
       - DEEPSEARCH_API_KEY=${DEEPSEARCH_API_KEY}
       - ELASTICSEARCH_SERVER=${ELASTICSEARCH_SERVER}
       - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT}
+      - BASE_URL=${BASE_URL}
+      - BACKEND_DOMAIN=${BACKEND_DOMAIN}
+      - FRONTEND_DOMAIN=${FRONTEND_DOMAIN}
     ports:
       - "8080:8080"
     volumes:
@@ -45,12 +55,15 @@ services:
   mysql:
     image: mysql:8.0
     container_name: mysql
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       - TZ=Asia/Seoul
       - MYSQL_ROOT_PASSWORD=${DB_PASS}
       - MYSQL_DATABASE=backendDB
-      #- MYSQL_USER=${DB_USER}
-      #- MYSQL_PASSWORD=${DB_PASS}
     command: ["mysqld", "--default-time-zone=+09:00"]
     ports:
       - "3306:3306"
@@ -66,14 +79,21 @@ services:
     networks:
       - backend
 
+
   redis-cache:
     image: redis:7.2
     container_name: redis-cache
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
     environment:
       - TZ=Asia/Seoul
     ports:
       - "6379:6379"
     volumes:
+      - redis-cache-data:/data
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     networks:
@@ -82,6 +102,11 @@ services:
   redis-session1:
     image: redis:7.2
     container_name: redis-session1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
     command: redis-server /usr/local/etc/redis/redis.conf
     environment:
       - TZ=Asia/Seoul
@@ -98,6 +123,11 @@ services:
   redis-session2:
     image: redis:7.2
     container_name: redis-session2
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
     command: redis-server /usr/local/etc/redis/redis.conf
     environment:
       - TZ=Asia/Seoul
@@ -114,6 +144,11 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     container_name: elasticsearch
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       - TZ=Asia/Seoul
       - discovery.type=single-node
@@ -128,13 +163,18 @@ services:
     volumes:
       - ./ElasticSearch/stopwords.txt:/usr/share/elasticsearch/config/stopwords.txt
       - es-data:/usr/share/elasticsearch/data
-      - ./ElasticSearch/plugins:/usr/share/elasticsearch/plugins
+      - es-plugins:/usr/share/elasticsearch/plugins
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -146,6 +186,11 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
     ports:
       - "3000:3000"
     networks:
@@ -153,21 +198,14 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
 
-  #  mysqld-exporter:
-  #    image: prom/mysqld-exporter:latest
-  #    container_name: mysqld-exporter
-  #    environment:
-  #      - DATA_SOURCE_NAME=root:1234@(mysql:3306)/
-  #    ports:
-  #      - "9104:9104"
-  #    depends_on:
-  #      - mysql
-  #    networks:
-  #      - backend
-
   redis-exporter:
     image: oliver006/redis_exporter
     container_name: redis-exporter
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "1"
     command:
       - '--redis.addr=redis://redis-cache:6379'
     ports:
@@ -180,6 +218,11 @@ services:
   redis-session1-exporter:
     image: oliver006/redis_exporter
     container_name: redis-session1-exporter
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "1"
     command:
       - '--redis.addr=redis://redis-session1:6379'
     ports:
@@ -190,6 +233,11 @@ services:
   redis-session2-exporter:
     image: oliver006/redis_exporter
     container_name: redis-session2-exporter
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "1"
     command:
       - '--redis.addr=redis://redis-session2:6379'
     ports:
@@ -197,11 +245,14 @@ services:
     networks:
       - backend
 
+
 volumes:
   mysql-data:
+  redis-cache-data:
   redis-session1-data:
   redis-session2-data:
   es-data:
+  es-plugins:
   prometheus-data:
   grafana-data:
 
