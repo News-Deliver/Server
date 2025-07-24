@@ -1,282 +1,102 @@
-
-name: 프로덕션 배포 (HTTPS 대응) - RDS 사용 (Actuator 제거)
-
+name: 프로덕션 배포
 
 on:
   push:
-    branches:
-      - master
-      - feat/https
+    branches: [master, feat/https]
   workflow_dispatch:
 
 jobs:
-  deploy-production:
+  deploy:
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 25
+    timeout-minutes: 15
 
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: SSH 키 설정
+      - name: 배포
         run: |
+          # SSH 키 설정
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: 프로덕션 서버에 배포
-        run: |
+          # 배포 실행
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
-            echo "🚀 프로덕션 배포 시작: $(date)"
-          
+            echo "🚀 배포 시작: $(date)"
             cd /opt/news-deliver
-          
-            # 최신 코드 가져오기
-            git fetch origin
-            git checkout ${{ github.ref_name }} || git checkout -b ${{ github.ref_name }} origin/${{ github.ref_name }}
-            git pull origin ${{ github.ref_name }}
-          
-            # 환경 변수 파일 확인
-            if [ ! -f ".env" ]; then
-              echo "❌ .env 파일을 찾을 수 없습니다!"
-              exit 1
-            fi
-          
-            # ✅ 볼륨 상태 확인 (배포 전) - MySQL 제외
-            echo "📊 배포 전 볼륨 상태:"
-            docker volume ls | grep -E "(es-data|redis)" || echo "중요 볼륨을 찾을 수 없습니다"
-          
-            # ✅ 안전한 컨테이너 정리 (볼륨 보존)
-            echo "🧹 기존 컨테이너 정리 중 (볼륨은 안전하게 보존)..."
+
+            # 코드 업데이트
+            git fetch origin && git checkout ${{ github.ref_name }} && git pull origin ${{ github.ref_name }}
+
+            # 환경 설정 확인
+            [ ! -f ".env" ] && echo "❌ .env 파일 없음" && exit 1
+
+            # 컨테이너 정리 및 볼륨 보존
+            echo "🧹 컨테이너 정리 중..."
             docker-compose down --remove-orphans --timeout 30 || true
-          
-            # ✅ 선택적 정리 (볼륨은 절대 건드리지 않음)
-            echo "🗑️ 불필요한 리소스만 선별 정리..."
-            docker container prune -f || true  # 정지된 컨테이너만 삭제
-            docker image prune -f || true      # 댕글링 이미지만 삭제
-            docker network prune -f || true    # 사용안하는 네트워크만 삭제
-          
-            # ❌ docker system prune -f 완전 제거! (볼륨 삭제의 주범)
-            # 이전: docker system prune -f || true  ← 이 명령어가 볼륨을 삭제했음
-          
-            # ✅ 정리 후 볼륨 상태 재확인 - MySQL 제외
-            echo "📊 정리 후 볼륨 상태 (보존되어야 함):"
-            docker volume ls | grep -E "(es-data|redis)" || echo "⚠️ 중요 볼륨이 사라졌습니다!"
-          
-            # ✅ 필요한 볼륨 생성 (없는 경우만)
-            echo "🔧 필요한 볼륨 확인 및 생성..."
-            docker volume create news-deliver_redis-cache-data 2>/dev/null || echo "redis-cache-data 볼륨 이미 존재"
-            docker volume create news-deliver_es-plugins 2>/dev/null || echo "es-plugins 볼륨 이미 존재"
-          
-            # 새 컨테이너 시작
-            echo "🚀 새 컨테이너 시작 중 (기존 볼륨 재사용)..."
+            docker container prune -f || true
+            docker image prune -f || true
+            docker network prune -f || true
+
+            # 필수 볼륨 생성
+            echo "🔧 볼륨 생성..."
+            docker volume create news-deliver_redis-cache-data 2>/dev/null || true
+            docker volume create news-deliver_es-data 2>/dev/null || true
+            docker volume create news-deliver_es-plugins 2>/dev/null || true
+
+            # 서비스 시작
+            echo "🚀 서비스 시작..."
             docker-compose up -d --build
-          
-            echo "⏳ 컨테이너 시작 대기 (90초)..."
+
+            # 서비스 준비 대기
+            echo "⏳ 서비스 준비 대기..."
             sleep 90
-          
-            # ✅ 엘라스틱서치 플러그인 확인 및 자동 설치
-            echo "🔍 Elasticsearch 플러그인 상태 확인..."
+
+            # Elasticsearch Nori 플러그인 설치
+            echo "📦 Nori 플러그인 확인..."
             if ! docker exec elasticsearch bin/elasticsearch-plugin list 2>/dev/null | grep -q "analysis-nori"; then
-              echo "📦 Nori 플러그인이 없습니다. 설치 중..."
-              docker exec elasticsearch bin/elasticsearch-plugin install analysis-nori || echo "플러그인 설치 실패"
-              echo "🔄 Elasticsearch 재시작..."
+              echo "설치 중..."
+              docker exec elasticsearch bin/elasticsearch-plugin install analysis-nori || true
               docker restart elasticsearch
               sleep 30
-            else
-              echo "✅ Nori 플러그인이 이미 설치되어 있습니다"
             fi
-          
-            # ✅ 엘라스틱서치 상태 확인
-            echo "📊 Elasticsearch 클러스터 상태:"
-            docker exec elasticsearch curl -s "localhost:9200/_cluster/health?pretty" | head -10 || echo "ES 상태 확인 실패"
-          
-            # ✅ 인덱스 상태 확인
-            echo "📑 인덱스 상태 확인:"
-            docker exec elasticsearch curl -s "localhost:9200/_cat/indices?v" || echo "인덱스 목록 조회 실패"
-          
 
-            echo "🎉 배포 스크립트 완료 (RDS 사용, 볼륨 보존됨, Actuator 제거)"
-
+            echo "✅ 배포 완료"
           '
 
-      - name: 컨테이너 상태 확인
+      - name: 헬스체크
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
-            echo "🔍 컨테이너 상태 확인"
-            cd /opt/news-deliver
+            echo "🔍 서비스 상태 확인"
+            docker ps --format "table {{.Names}}\t{{.Status}}"
           
-            echo "=== Docker 컨테이너 상태 ==="
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-          
-            echo "=== 볼륨 상태 (중요!) - MySQL 제외 ==="
-            docker volume ls | grep -E "(es-data|redis)" || echo "⚠️ 중요 볼륨이 없습니다"
-          
-            echo "=== Spring Boot 컨테이너 로그 (최근 30줄) ==="
-            SPRINGBOOT_CONTAINER=$(docker ps -q --filter "name=springboot")
-            if [ ! -z "$SPRINGBOOT_CONTAINER" ]; then
-              docker logs $SPRINGBOOT_CONTAINER --tail=30
-            else
-              echo "❌ Spring Boot 컨테이너가 실행 중이 아닙니다"
-            fi
-          
-            echo "=== 주요 서비스 상태 확인 ==="
-            # RDS 연결 확인 (Spring Boot 로그를 통해)
-            echo "🔌 RDS 연결 상태 확인:"
-            if [ ! -z "$SPRINGBOOT_CONTAINER" ]; then
-              docker logs $SPRINGBOOT_CONTAINER 2>&1 | grep -i "database\|connection\|rds" | tail -5 && echo "  📊 RDS 연결 로그 확인됨" || echo "  ⚠️ RDS 연결 로그 없음 (정상일 수 있음)"
-            fi
-          
-            # Redis 확인  
-            if docker ps | grep -q redis; then
-              echo "✅ Redis 컨테이너 실행 중"
-              docker exec redis-cache redis-cli ping 2>/dev/null && echo "  💾 Redis Cache 연결 정상" || echo "  ❌ Redis Cache 연결 실패"
-            else
-              echo "❌ Redis 컨테이너 없음"
-            fi
-          
-            # Elasticsearch 확인
-            if docker ps | grep -q elasticsearch; then
-              echo "✅ Elasticsearch 컨테이너 실행 중"
-              echo "📊 Elasticsearch 클러스터 상태:"
-              docker exec elasticsearch curl -s -X GET "localhost:9200/_cluster/health?pretty" | head -10 || echo "ES 상태 확인 실패"
-              echo "📑 인덱스 목록:"
-              docker exec elasticsearch curl -s -X GET "localhost:9200/_cat/indices?v" || echo "인덱스 목록 조회 실패"
-              echo "🔌 설치된 플러그인:"
-              docker exec elasticsearch bin/elasticsearch-plugin list 2>/dev/null | grep nori && echo "  ✅ Nori 플러그인 설치됨" || echo "  ❌ Nori 플러그인 없음"
-            else
-              echo "❌ Elasticsearch 컨테이너 없음"
-            fi
+            echo "💾 볼륨 상태"
+            docker volume ls | grep news-deliver || echo "볼륨 없음"
           '
 
-      - name: 내부 헬스체크 (Actuator 제거 버전)
-        run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} '
-            echo "🏥 내부 헬스체크 시작 (Actuator 없음)"
-          
-            # Spring Boot 컨테이너 내부에서 자가 테스트
-            SPRINGBOOT_CONTAINER=$(docker ps -q --filter "name=springboot")
-            if [ ! -z "$SPRINGBOOT_CONTAINER" ]; then
-
-              echo "Spring Boot 내부 헬스체크 (HotTopic API 사용):"
-              docker exec $SPRINGBOOT_CONTAINER curl -f http://localhost:8080/api/hottopic 2>/dev/null && echo "✅ 내부 API 정상 (RDS + ES 연결 포함)" || echo "❌ 내부 API 실패"
-          
-              echo "Swagger UI 접근 테스트:"
-              docker exec $SPRINGBOOT_CONTAINER curl -f http://localhost:8080/swagger.html 2>/dev/null && echo "✅ Swagger UI 정상" || echo "❌ Swagger UI 실패"
-
+          # HTTPS 헬스체크
+          echo "🌐 HTTPS 헬스체크..."
+          for i in {1..3}; do
+            if curl -f https://api.likelionnews.click/api/hottopic >/dev/null 2>&1; then
+              echo "✅ Hot Topic API 정상"
+              break
             fi
-          
-            # 호스트에서 컨테이너로 접근 테스트
-            echo "호스트에서 컨테이너 접근 테스트:"
-            curl -f http://localhost:8080/api/hottopic 2>/dev/null && echo "✅ 호스트->컨테이너 정상" || echo "❌ 호스트->컨테이너 실패"
-          
-            # ✅ HotTopic API 테스트 (ElasticSearch 의존)
-            echo "HotTopic API 테스트 (ElasticSearch 의존성):"
-            curl -f http://localhost:8080/api/hottopic 2>/dev/null && echo "✅ HotTopic API 정상 (ES 인덱스 유지됨)" || echo "❌ HotTopic API 실패 (ES 문제 가능성)"
-          '
-
-      - name: 최종 HTTPS 헬스체크 (Actuator 제거 버전)
-        run: |
-          echo "🎯 HTTPS 도메인 헬스체크 (Actuator 없음)..."
-          
-          success=false
-          api_domain="https://api.likelionnews.click"
-          
-          for attempt in {1..5}; do
-            echo "🔄 시도 $attempt/5"
-          
-            # HTTPS 도메인으로 테스트 (auth/status 제거, hottopic 우선)
-            endpoints=("/api/hottopic" "/swagger.html")
-          
-            for endpoint in "${endpoints[@]}"; do
-              url="${api_domain}${endpoint}"
-              echo "  📡 테스트: $url"
-          
-              response=$(curl -s -o /dev/null -w "%{http_code}:%{time_total}" --connect-timeout 10 --max-time 20 "$url" || echo "000:0")
-              http_code=$(echo $response | cut -d: -f1)
-              time_total=$(echo $response | cut -d: -f2)
-          
-              echo "  📊 응답: 코드=$http_code, 시간=${time_total}s"
-          
-              if [ "$http_code" = "200" ]; then
-                echo "  ✅ $endpoint 성공!"
-                if [ "$endpoint" = "/api/hottopic" ]; then
-                  echo "  🎉 ElasticSearch 인덱스가 정상적으로 유지되었습니다!"
-                  echo "  🎉 RDS 연결이 정상적으로 작동합니다!"
-                fi
-                if [ "$endpoint" = "/swagger.html" ]; then
-                  echo "  📋 API 문서 접근 가능합니다!"
-                fi
-                if [ "$endpoint" = "/api/auth/status" ]; then
-                  echo "  🎉 RDS 연결이 정상적으로 작동합니다!"
-                fi
-                success=true
-                break 2
-              elif [ "$http_code" = "404" ]; then
-                echo "  ⚠️ $endpoint 404 (엔드포인트가 없을 수 있음)"
-              elif [ "$http_code" = "000" ]; then
-                echo "  ❌ $endpoint 연결 실패 (DNS/ALB 문제 가능성)"
-              else
-                echo "  ❌ $endpoint HTTP $http_code 오류"
-              fi
-            done
-          
-            if [ $attempt -lt 5 ]; then
-              echo "  ⏳ 15초 대기..."
-              sleep 15
-            fi
+            echo "시도 $i/3 실패, 15초 대기..."
+            sleep 15
           done
-          
-          if [ "$success" = true ]; then
-            echo "🎉 HTTPS 배포 성공! (Actuator 제거 완료)"
-            echo "🔗 API 서비스: https://api.likelionnews.click"
-            echo "📋 API 문서: https://api.likelionnews.click/swagger.html"
-            echo "🔥 핫토픽: https://api.likelionnews.click/api/hottopic"
-            echo "💾 데이터베이스: AWS RDS 연결"
-            echo "⚡ 모니터링: Actuator 제거됨 (Elasticsearch 버전 충돌 해결)"
-
-          else
-            echo "⚠️ HTTPS 헬스체크 실패"
-            echo "🔧 확인사항:"
-            echo "  - Route53에서 api.likelionnews.click이 ALB를 가리키는지 확인"
-            echo "  - ALB에 SSL 인증서가 정상 연결되었는지 확인"
-            echo "  - ALB Target Group이 healthy 상태인지 확인"
-            echo "  - EC2 Security Group에서 ALB → EC2:8080 허용되었는지 확인"
-            echo "  - RDS Security Group에서 EC2 → RDS:3306 허용되었는지 확인"
-            echo "  - Elasticsearch 클러스터 상태 및 인덱스 확인"
-            echo "  - Nori 플러그인 설치 상태 확인"
-            echo "  - Spring Boot 애플리케이션 로그 확인 (Actuator 제거 후)"
-          fi
 
       - name: 배포 요약
         if: always()
         run: |
-
-          echo "## 🚀 HTTPS 배포 요약 - RDS 사용 (Actuator 제거)" >> $GITHUB_STEP_SUMMARY
-
+          echo "## 🚀 배포 완료" >> $GITHUB_STEP_SUMMARY
           echo "- **상태**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- **시간**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- **브랜치**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **데이터베이스**: 🗄️ AWS RDS (Docker MySQL 제거)" >> $GITHUB_STEP_SUMMARY
-          echo "- **볼륨**: 🛡️ ElasticSearch/Redis 볼륨 보존됨" >> $GITHUB_STEP_SUMMARY
-          echo "- **ElasticSearch**: 📊 인덱스 및 Nori 플러그인 자동 관리" >> $GITHUB_STEP_SUMMARY
-          echo "- **Redis**: 💾 캐시 데이터 영구 보존" >> $GITHUB_STEP_SUMMARY
-          echo "- **모니터링**: ⚡ Spring Boot Actuator 제거 (Elasticsearch 버전 충돌 해결)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 HTTPS 링크들:" >> $GITHUB_STEP_SUMMARY
-          echo "- **API 서비스**: https://api.likelionnews.click" >> $GITHUB_STEP_SUMMARY
-          echo "- **API 문서**: https://api.likelionnews.click/swagger.html" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 서비스 링크" >> $GITHUB_STEP_SUMMARY
+          echo "- **API**: https://api.likelionnews.click" >> $GITHUB_STEP_SUMMARY
+          echo "- **문서**: https://api.likelionnews.click/swagger.html" >> $GITHUB_STEP_SUMMARY
           echo "- **핫토픽**: https://api.likelionnews.click/api/hottopic" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🛠 문제 해결:" >> $GITHUB_STEP_SUMMARY
-          echo "1. \`ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "2. \`cd /opt/news-deliver && docker ps\`" >> $GITHUB_STEP_SUMMARY
-          echo "3. \`docker logs springboot\` (컨테이너명 확인 후)" >> $GITHUB_STEP_SUMMARY
-          echo "4. \`docker volume ls | grep -E \"(es-data|redis)\"\`" >> $GITHUB_STEP_SUMMARY
-          echo "5. \`docker exec elasticsearch curl localhost:9200/_cat/indices\`" >> $GITHUB_STEP_SUMMARY
-          echo "6. ALB와 Route53 설정 확인" >> $GITHUB_STEP_SUMMARY
-          echo "7. RDS 연결 및 보안 그룹 확인" >> $GITHUB_STEP_SUMMARY
-          echo "8. Actuator 제거로 인한 Elasticsearch 라이브러리 충돌 해결 확인" >> $GITHUB_STEP_SUMMARY
-
