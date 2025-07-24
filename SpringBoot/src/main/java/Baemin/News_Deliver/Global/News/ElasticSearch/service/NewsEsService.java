@@ -16,7 +16,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 
@@ -93,23 +96,40 @@ public class NewsEsService {
      * @return 해당 섹션의 뉴스 DTO 리스트
      */
     private List<NewsItemDTO> loadNewsFromDB(String section) {
+        // 현재 시간 기준으로 어제의 시작과 끝을 계산
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        LocalDateTime startOfYesterday = today.minusDays(1).atStartOfDay();
+        LocalDateTime endOfYesterday = today.atStartOfDay();
+        //FIXME : AWS RDS와 시간대 차이로 임시로 서버측에서 시간대를 조절하였음. 설정 문제로 인한 수정이니 해결되면 수정할 것.
         String sql = """
-            SELECT *
-            FROM news
-            WHERE published_at >= CURDATE() - INTERVAL 1 DAY
-              AND published_at < CURDATE()
-              AND sections = ?
-                """;
+                SELECT *
+                FROM news
+                WHERE published_at >= ?
+                  AND published_at < ?
+                  AND sections = ?
+            """;
 
-        return jdbcTemplate.query(sql, new Object[]{section}, (rs, rowNum) -> new NewsItemDTO(
-                String.valueOf(rs.getLong("id")),
-                List.of(rs.getString("sections")),
-                rs.getString("title"),
-                rs.getString("publisher"),
-                rs.getString("summary"),
-                rs.getString("content_url"),
-                rs.getTimestamp("published_at").toLocalDateTime()
-        ));
+//        String sql = """
+//            SELECT *
+//            FROM news
+//            WHERE published_at >= CURDATE() - INTERVAL 1 DAY
+//              AND published_at < CURDATE()
+//              AND sections = ?
+//                """;
+
+        return jdbcTemplate.query(
+                sql,
+                new Object[]{Timestamp.valueOf(startOfYesterday), Timestamp.valueOf(endOfYesterday), section},
+                (rs, rowNum) -> new NewsItemDTO(
+                        String.valueOf(rs.getLong("id")),
+                        List.of(rs.getString("sections")),
+                        rs.getString("title"),
+                        rs.getString("publisher"),
+                        rs.getString("summary"),
+                        rs.getString("content_url"),
+                        rs.getTimestamp("published_at").toLocalDateTime()
+                )
+        );
     }
 
     /**
