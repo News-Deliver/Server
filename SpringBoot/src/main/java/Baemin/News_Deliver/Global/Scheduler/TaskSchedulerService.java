@@ -30,15 +30,18 @@ import java.util.concurrent.ScheduledFuture;
  * 동적으로 카카오 뉴스 메시지를 전송할 스케줄을 등록/취소하는 서비스입니다.
  *
  * <p>
- * Spring의 {@link TaskScheduler}를 사용하여 사용자별로 개별 {@link ScheduledFuture} 작업을 관리합니다.
+ * Spring의 {@link TaskScheduler}를 사용하여 사용자별로 개별 {@link ScheduledFuture} 작업을
+ * 관리합니다.
  * 각 작업은 userId-settingId 조합으로 유니크하게 식별됩니다.
  * </p>
  *
- * <p>기능 요약:</p>
+ * <p>
+ * 기능 요약:
+ * </p>
  * <ul>
- *     <li>사용자 설정에 따른 cron 스케줄 등록</li>
- *     <li>기존 스케줄 취소 및 갱신</li>
- *     <li>스케줄 실행 시 카카오 메시지 발송 트리거</li>
+ * <li>사용자 설정에 따른 cron 스케줄 등록</li>
+ * <li>기존 스케줄 취소 및 갱신</li>
+ * <li>스케줄 실행 시 카카오 메시지 발송 트리거</li>
  * </ul>
  */
 
@@ -47,7 +50,7 @@ import java.util.concurrent.ScheduledFuture;
 @Slf4j
 public class TaskSchedulerService {
 
-    @Qualifier("customTaskScheduler") //커스텀한 테스크 스케쥴러로 등록함.
+    @Qualifier("customTaskScheduler") // 커스텀한 테스크 스케쥴러로 등록함.
     private final TaskScheduler taskScheduler;
 
     private final KakaoMessageService kakaoMessageService;
@@ -75,6 +78,9 @@ public class TaskSchedulerService {
     public void scheduleUser(Setting setting) {
         Long settingId = setting.getId();
 
+        // findByIdWithAllAssociations 사용
+        // setting = settingRepository.findByIdWithAllAssociations(settingId)
+        // .orElseThrow(() -> new KakaoException(ErrorCode.SETTING_NOT_FOUND));
         // Fetch Join으로 days 미리 가져와서 LazyInitializationException 방지
         setting = settingRepository.findByIdWithDays(settingId)
                 .orElseThrow(() -> new KakaoException(ErrorCode.SETTING_NOT_FOUND));
@@ -82,7 +88,7 @@ public class TaskSchedulerService {
         Long userId = setting.getUser().getId();
         String taskKey = generateTaskKey(userId, settingId);
 
-        // 이미 등록된 경우 기존 스케줄 취소
+        /* 이미 등록된 경우 기존 스케줄 취소 */
         if (scheduledTasks.containsKey(taskKey)) {
             cancelUser(userId, settingId);
         }
@@ -102,7 +108,17 @@ public class TaskSchedulerService {
             log.info("[Scheduler] 유저 {} / setting {} 메시지 발송 트리거 - {}", userId, settingId, LocalDateTime.now());
 
             try {
-                Optional<Setting> optionalSetting = settingRepository.findById(settingId);
+
+                /**
+                 *
+                 * Hot Fix : Setting Keyword Feth Join 문제 해결 시도
+                 *
+                 *
+                 */
+                Optional<Setting> optionalSetting = settingRepository.findByIdWithDays(settingId);
+                // Optional<Setting> optionalSetting =
+                // settingRepository.findByIdWithAllAssociations(settingId); //안됨됨
+                // Optional<Setting> optionalSetting = settingRepository.findById(settingId);
 
                 if (optionalSetting.isEmpty()) {
                     log.warn("[Scheduler] 유저 {} / setting {} 설정 정보가 없음", userId, settingId);
@@ -111,8 +127,12 @@ public class TaskSchedulerService {
 
                 Setting settings = optionalSetting.get();
 
-                log.info("[Scheduler] 유저 {} / setting {} 키워드: {}, 제외 키워드: {}",
-                        userId, settingId, settings.getKeywords(), settings.getBlockKeywords());
+                // blockKeywords, keywords가 꼭 필요하다면 강제 초기화
+                // Hibernate.initialize(settings.getBlockKeywords());
+                // Hibernate.initialize(settings.getKeywords());
+
+                // log.info("[Scheduler] 유저 {} / setting {} 키워드: {}, 제외 키워드: {}",
+                // userId, settingId, settings.getKeywords(), settings.getBlockKeywords());
 
                 kakaoMessageService.sendKakaoMessage(refreshAccessToken, userId);
 
@@ -152,7 +172,7 @@ public class TaskSchedulerService {
      * @param settingId 설정 ID
      * @return userId-settingId 형식의 문자열 키
      */
-    //중복 스케쥴러 삭제 메서드용
+    // 중복 스케쥴러 삭제 메서드용
     private String generateTaskKey(Long userId, Long settingId) {
         return userId + "-" + settingId;
     }

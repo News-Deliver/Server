@@ -65,4 +65,26 @@ public interface SettingRepository extends JpaRepository<Setting, Long> {
             "AND (s.isDeleted IS NULL OR s.isDeleted = false)")
     List<Setting> findAllValidSettingsWithDays(@Param("now") LocalDateTime now);
 
+    /**
+     * Hot Fix
+     * What : 세팅 고유 번로를 통한 세팅 객체 반환
+     * How : Fetch join으로 미리 컬렉션을 로딩
+     * Why : keywords, blockKeywords 필드는 지연 로딩문제
+     * Who : 류성열
+     * When : 2025-07-24
+     *
+     *
+     * @param id 세팅 고유 번호
+     * @return 세팅
+     */
+    @Query("""
+            SELECT s FROM Setting s
+            LEFT JOIN FETCH s.days
+            LEFT JOIN FETCH s.keywords
+            LEFT JOIN FETCH s.blockKeywords
+            WHERE s.id = :id
+            """)
+    Optional<Setting> findByIdWithAllAssociations(@Param("id") Long id);
+
+
 }

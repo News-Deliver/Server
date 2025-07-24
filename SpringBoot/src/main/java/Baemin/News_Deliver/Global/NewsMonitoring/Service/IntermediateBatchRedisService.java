@@ -22,6 +22,14 @@ public class IntermediateBatchRedisService {
 
     private static final String BATCH_KEY_PREFIX = "IntermediateBatch:";
 
+    public boolean isBatchAlreadyDone(String key) {
+        return redisSession1Template.hasKey(key);
+    }
+
+    public void markBatchDone(String key) {
+        redisSession1Template.opsForValue().set(key, "done", Duration.ofHours(12)); // 12
+    }
+
     /**
      * 중간 배치 실행 횟수를 조회 메서드
      *
