@@ -169,24 +169,38 @@ public class NewsEsService {
     }
 
     /**
-     * 키워드로 뉴스 기사 검색
+     * 어제 날짜 기준으로 뉴스 기사 검색을 수행합니다.
      *
      * <p>{@code combinedTokens} 필드에 대해 match 쿼리를 수행하고,
-     * 점수(score) 기준으로 내림차순 정렬된 상위 결과를 반환합니다.</p>
+     * {@code publishedAt} 필드가 어제(00:00~24:00)인 데이터만 필터링합니다.
+     * 결과는 점수(score) 기준으로 내림차순 정렬되어 반환됩니다.</p>
      *
      * @param keyword 검색 키워드
-     * @param size 최대 검색 결과 수
-     * @return 검색된 뉴스 도큐먼트 리스트
+     * @param size    최대 검색 결과 수
+     * @return 어제 날짜 중 키워드를 포함하는 뉴스 도큐먼트 리스트
      * @throws IOException Elasticsearch 검색 실패 시 발생
      */
     public List<NewsEsDocument> searchByKeyword(String keyword, int size) throws IOException {
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+
+        String from = yesterday.atStartOfDay().toString(); // 어제 00:00:00
+        String to = today.atStartOfDay().toString();       // 오늘 00:00:00
+
         SearchResponse<NewsEsDocument> response = elasticsearchClient.search(s -> s
                         .index("news-index-nori")
                         .size(size)
                         .query(q -> q
-                                .match(m -> m
-                                        .field("combinedTokens")
-                                        .query(keyword)
+                                .bool(b -> b
+                                        .must(m -> m.match(mm -> mm
+                                                .field("combinedTokens")
+                                                .query(keyword)
+                                        ))
+                                        .filter(f -> f.range(r -> r
+                                                .field("publishedAt")
+                                                .gte(JsonData.of(from))
+                                                .lt(JsonData.of(to))
+                                        ))
                                 )
                         )
                         .sort(sort -> sort
@@ -235,4 +249,46 @@ public class NewsEsService {
                 .buckets()
                 .array();
     }
+
+    // ======================= Deprecated =========================
+
+    /**
+     * Hot Fix
+     *
+     * Deprecated At 2025-07-24
+     * By 김원중
+     *
+     */
+//    /**
+//     * 키워드로 뉴스 기사 검색
+//     *
+//     * <p>{@code combinedTokens} 필드에 대해 match 쿼리를 수행하고,
+//     * 점수(score) 기준으로 내림차순 정렬된 상위 결과를 반환합니다.</p>
+//     *
+//     * @param keyword 검색 키워드
+//     * @param size 최대 검색 결과 수
+//     * @return 검색된 뉴스 도큐먼트 리스트
+//     * @throws IOException Elasticsearch 검색 실패 시 발생
+//     */
+//    public List<NewsEsDocument> searchByKeyword(String keyword, int size) throws IOException {
+//        SearchResponse<NewsEsDocument> response = elasticsearchClient.search(s -> s
+//                        .index("news-index-nori")
+//                        .size(size)
+//                        .query(q -> q
+//                                .match(m -> m
+//                                        .field("combinedTokens")
+//                                        .query(keyword)
+//                                )
+//                        )
+//                        .sort(sort -> sort
+//                                .score(sc -> sc.order(SortOrder.Desc))
+//                        ),
+//                NewsEsDocument.class
+//        );
+//
+//        return response.hits().hits().stream()
+//                .map(Hit::source)
+//                .filter(Objects::nonNull)
+//                .toList();
+//    }
 }
