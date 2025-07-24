@@ -25,11 +25,12 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 
 /**
  * KakaoMessageService는 사용자의 키워드 기반으로 뉴스를 조회하고,
@@ -37,10 +38,10 @@ import java.util.Map;
  *
  * 주요 기능:
  * <ul>
- *     <li>유저의 AccessToken 갱신 및 조회</li>
- *     <li>뉴스 검색 및 사용자 맞춤 필터링</li>
- *     <li>카카오톡 템플릿 메시지 전송</li>
- *     <li>전송된 뉴스에 대한 히스토리 저장</li>
+ * <li>유저의 AccessToken 갱신 및 조회</li>
+ * <li>뉴스 검색 및 사용자 맞춤 필터링</li>
+ * <li>카카오톡 템플릿 메시지 전송</li>
+ * <li>전송된 뉴스에 대한 히스토리 저장</li>
  * </ul>
  */
 
@@ -64,7 +65,6 @@ public class KakaoMessageService {
     @Value("${spring.security.oauth2.client.registration.kakao.client-secret}")
     private String kakaoClientSecret;
 
-
     /**
      * 카카오 사용자 Access Token을 Refresh Token을 이용해 갱신 후 반환합니다.
      *
@@ -75,7 +75,7 @@ public class KakaoMessageService {
      */
     public String getKakaoUserAccessToken(String refreshAccessToken, Long userId) {
 
-        //유저의 accesstoken을 가져 올 것
+        // 유저의 accesstoken을 가져 올 것
         String accessToken = provider.refreshAccessToken(refreshAccessToken);
         if (accessToken == null || accessToken.isEmpty()) {
             throw new KakaoException(ErrorCode.KAKAO_TOKEN_ACCESS_FAILED);
@@ -85,25 +85,46 @@ public class KakaoMessageService {
         return accessToken;
     }
 
-
     /**
      * 카카오 메시지 전송 메서드
      *
      * @param refreshAccessToken 유저의 리프레시 토큰
-     * @param userId 유저의 고유 번호
+     * @param userId             유저의 고유 번호
      * @return T,F
      */
     public boolean sendKakaoMessage(String refreshAccessToken, Long userId) {
-
-        /* 유저의 세팅 리스트 반환 */
         log.info("refreshAccessToken 발급 결과 :{}", refreshAccessToken);
         String accessToken = getKakaoUserAccessToken(refreshAccessToken, userId);
         log.info("accessToken 발급 결과:{}", accessToken);
+
+        // 1. 유저의 모든 유효한 세팅 조회
         List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
+
+        // LocalTime nowTime = LocalTime.now();
+        // // 2. 현재 시간과 일치하는 세팅만 필터링
+        // List<SettingDTO> currentSettings = settings.stream()
+        // .filter(setting ->
+        // setting.getDeliveryTime().equals(nowTime.truncatedTo(ChronoUnit.MINUTES)))
+        // .toList();
+
+        LocalTime nowTime = LocalTime.now().truncatedTo(ChronoUnit.MINUTES);
+
+        List<SettingDTO> currentSettings = settings.stream()
+                .filter(setting -> {
+                    LocalTime deliveryTime = setting.getDeliveryTime().toLocalTime().truncatedTo(ChronoUnit.MINUTES);
+                    return deliveryTime.equals(nowTime);
+                })
+                .toList();
+
+        // todo : 계속 여기서 문제가 생김
+        if (currentSettings.isEmpty()) {
+            log.info("현재 시간에 발송할 세팅이 없습니다: {}", nowTime);
+            return false;
+        }
+
         boolean anySuccess = false;
 
-        /* Setting을 순회하며 뉴스 리스트 저장&전송 */
-        for (SettingDTO setting : settings) {
+        for (SettingDTO setting : currentSettings) {
             List<NewsEsDocument> newsList = newsService.searchNews(
                     setting.getSettingKeywords(), setting.getBlockKeywords());
 
@@ -124,17 +145,55 @@ public class KakaoMessageService {
         return anySuccess;
     }
 
+    // /**
+    // * 카카오 메시지 전송 메서드
+    // *
+    // * @param refreshAccessToken 유저의 리프레시 토큰
+    // * @param userId 유저의 고유 번호
+    // * @return T,F
+    // */
+    // public boolean sendKakaoMessage(String refreshAccessToken, Long userId) {
+    //
+    // /* 유저의 세팅 리스트 반환 */
+    // log.info("refreshAccessToken 발급 결과 :{}", refreshAccessToken);
+    // String accessToken = getKakaoUserAccessToken(refreshAccessToken, userId);
+    // log.info("accessToken 발급 결과:{}", accessToken);
+    // List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
+    // boolean anySuccess = false;
+    //
+    // /* Setting을 순회하며 뉴스 리스트 저장&전송 */
+    // for (SettingDTO setting : settings) {
+    // List<NewsEsDocument> newsList = newsService.searchNews(
+    // setting.getSettingKeywords(), setting.getBlockKeywords());
+    //
+    // if (newsList == null || newsList.isEmpty()) {
+    // log.info("세팅 ID {}에 해당하는 뉴스가 없음", setting.getId());
+    // continue;
+    // }
+    //
+    // if (newsList.size() > 5) {
+    // newsList = newsList.subList(0, 5);
+    // }
+    //
+    // saveHistory(newsList, List.of(setting));
+    // boolean success = sendSingleKakaoMessage(accessToken, newsList);
+    // anySuccess = anySuccess || success;
+    // }
+    //
+    // return anySuccess;
+    // }
+
     /**
      * 개별 카카오톡 전송 메섣,
      *
      * @param accessToken 유저 엑세스 토큰
-     * @param newsList 뉴스 리스트
+     * @param newsList    뉴스 리스트
      * @return T,F
      */
     private boolean sendSingleKakaoMessage(String accessToken, List<NewsEsDocument> newsList) {
         try {
 
-            /*  헤더 설정 */
+            /* 헤더 설정 */
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.set("Authorization", "Bearer " + accessToken);
@@ -171,6 +230,7 @@ public class KakaoMessageService {
      * Deprecated된 메서드는 하단에 정리하였습니다.
      *
      * @param userId 유저의 고유 번호
+     * 
      * @return 각 세팅에 맞는 뉴스 기사 리스트
      */
     private List<NewsEsDocument> getNewsEsDocumentList_Fixed(Long userId) {
@@ -181,7 +241,7 @@ public class KakaoMessageService {
             log.info("셋팅값 확인용 코드 : " + setting.getSettingKeywords());
             log.info("셋팅 제외 확인용 코드 : " + setting.getBlockKeywords());
 
-            List<String> keywords = setting.getSettingKeywords();  // 예: [이재명]
+            List<String> keywords = setting.getSettingKeywords(); // 예: [이재명]
             List<String> blockKeywords = setting.getBlockKeywords(); // 예: [한국, 중국]
 
             if (keywords == null || keywords.isEmpty()) {
@@ -220,7 +280,7 @@ public class KakaoMessageService {
         log.info("뉴스 전체 리스트 확인:" + newsList);
         Map<String, String> templateArgs = new HashMap<>();
 
-        //메세지 5개 고정
+        // 메세지 5개 고정
         for (int i = 0; i < Math.min(5, newsList.size()); i++) {
             NewsEsDocument news = newsList.get(i);
             templateArgs.put("TITLE" + (i + 1), news.getTitle());
@@ -236,8 +296,8 @@ public class KakaoMessageService {
     /**
      * 전송된 뉴스 정보를 히스토리로 저장합니다. 중복 뉴스는 저장하지 않습니다.
      *
-     * @param newsList  뉴스 리스트
-     * @param settings  해당 뉴스에 적용된 사용자 설정들
+     * @param newsList 뉴스 리스트
+     * @param settings 해당 뉴스에 적용된 사용자 설정들
      * @return 저장이 이루어진 경우 true, 아무 것도 저장되지 않았으면 false
      */
     private boolean saveHistory(List<NewsEsDocument> newsList, List<SettingDTO> settings) {
@@ -246,12 +306,13 @@ public class KakaoMessageService {
             throw new KakaoException(ErrorCode.NO_NEWS_DATA);
         }
 
-        //중복 저장 방지용 플래그
+        // 중복 저장 방지용 플래그
         boolean saved = false;
 
         for (NewsEsDocument newsDoc : newsList) {
-//            News newsitem = newsRepository.findById(Long.parseLong(newsDoc.getId()))
-//                    .orElseThrow(() -> new RuntimeException("뉴스가 존재하지 않습니다: " + newsDoc.getId()));
+            // News newsitem = newsRepository.findById(Long.parseLong(newsDoc.getId()))
+            // .orElseThrow(() -> new RuntimeException("뉴스가 존재하지 않습니다: " +
+            // newsDoc.getId()));
 
             /* DB와 ES 동기화 되어있지 않을 시, 예외 */
             News newsitem = newsRepository.findById(Long.parseLong(newsDoc.getId()))
@@ -277,8 +338,9 @@ public class KakaoMessageService {
                         .setting(setting)
                         .news(newsitem)
                         .settingKeyword(String.join(",", settingDTO.getSettingKeywords()))
-                        .blockKeyword(settingDTO.getBlockKeywords() != null ?
-                                String.join(",", settingDTO.getBlockKeywords()) : null)
+                        .blockKeyword(
+                                settingDTO.getBlockKeywords() != null ? String.join(",", settingDTO.getBlockKeywords())
+                                        : null)
                         .build();
 
                 historyRepository.save(history);
@@ -291,96 +353,100 @@ public class KakaoMessageService {
 
     // ======================= Deprecated =========================
 
-//    /**
-//     * 사용자의 키워드에 맞는 뉴스를 검색한 후, 카카오 메시지를 전송합니다.
-//     *
-//     * @param refreshAccessToken 사용자 카카오 Refresh Token
-//     * @param userId             사용자 고유 ID
-//     * @return 메시지 전송 성공 여부 (true: 성공, false: 실패)
-//     */
-//    public boolean sendKakaoMessage(String refreshAccessToken, Long userId) {
-//        try {
-//
-//            /**
-//             * 문제 정의 : 세팅 1번에 대해서만 메시지가 전송된다.
-//             */
-//
-//            /* 유저에게 맞는 뉴스 리스트 검색*/
-//            String accessToken = getKakaoUserAccessToken(refreshAccessToken, userId);
-//            List<NewsEsDocument> newsList = getNewsEsDocumentList_Fixed(userId);
-//            if (newsList == null) new KakaoException(ErrorCode.NO_NEWS_DATA);;
-//
-//            /* Http 요청 헤더 설정 */
-//            HttpHeaders headers = new HttpHeaders();
-//            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-//            headers.set("Authorization", "Bearer " + accessToken);
-//
-//            /* 템플릿 설정(ES로 검색한 뉴스 리스트 넘겨받음) */
-//            Map<String, String> templateArgs = createTemplateData(newsList);
-//
-//            /* JSON 문자열로 변환 */
-//            ObjectMapper objectMapper = new ObjectMapper();
-//            String templateArgsJson = objectMapper.writeValueAsString(templateArgs);
-//
-//            /* 요청 파라미터 구성 */
-//            MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-//            params.add("template_id", "122080");
-//            params.add("template_args", templateArgsJson);
-//
-//            /* 카카오 메시지 전송 */
-//            HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(params, headers);
-//            ResponseEntity<String> response = restTemplate.postForEntity(KAKAO_SEND_TOME_URL, entity, String.class);
-//            log.info("카카오 메시지 전송 응답: {}", response.getBody());
-//
-//            return response.getStatusCode() == HttpStatus.OK;
-//
-//        } catch (Exception e) {
-//            log.error("카카오 메시지 전송 실패: ", e);
-//            throw new KakaoException(ErrorCode.MESSAGE_SEND_FAILED);
-//        }
-//    }
+    // /**
+    // * 사용자의 키워드에 맞는 뉴스를 검색한 후, 카카오 메시지를 전송합니다.
+    // *
+    // * @param refreshAccessToken 사용자 카카오 Refresh Token
+    // * @param userId 사용자 고유 ID
+    // * @return 메시지 전송 성공 여부 (true: 성공, false: 실패)
+    // */
+    // public boolean sendKakaoMessage(String refreshAccessToken, Long userId) {
+    // try {
+    //
+    // /**
+    // * 문제 정의 : 세팅 1번에 대해서만 메시지가 전송된다.
+    // */
+    //
+    // /* 유저에게 맞는 뉴스 리스트 검색*/
+    // String accessToken = getKakaoUserAccessToken(refreshAccessToken, userId);
+    // List<NewsEsDocument> newsList = getNewsEsDocumentList_Fixed(userId);
+    // if (newsList == null) new KakaoException(ErrorCode.NO_NEWS_DATA);;
+    //
+    // /* Http 요청 헤더 설정 */
+    // HttpHeaders headers = new HttpHeaders();
+    // headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+    // headers.set("Authorization", "Bearer " + accessToken);
+    //
+    // /* 템플릿 설정(ES로 검색한 뉴스 리스트 넘겨받음) */
+    // Map<String, String> templateArgs = createTemplateData(newsList);
+    //
+    // /* JSON 문자열로 변환 */
+    // ObjectMapper objectMapper = new ObjectMapper();
+    // String templateArgsJson = objectMapper.writeValueAsString(templateArgs);
+    //
+    // /* 요청 파라미터 구성 */
+    // MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+    // params.add("template_id", "122080");
+    // params.add("template_args", templateArgsJson);
+    //
+    // /* 카카오 메시지 전송 */
+    // HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(params,
+    // headers);
+    // ResponseEntity<String> response =
+    // restTemplate.postForEntity(KAKAO_SEND_TOME_URL, entity, String.class);
+    // log.info("카카오 메시지 전송 응답: {}", response.getBody());
+    //
+    // return response.getStatusCode() == HttpStatus.OK;
+    //
+    // } catch (Exception e) {
+    // log.error("카카오 메시지 전송 실패: ", e);
+    // throw new KakaoException(ErrorCode.MESSAGE_SEND_FAILED);
+    // }
+    // }
 
-//    /**
-//     * 사용자의 Setting 정보를 기반으로 키워드에 해당하는 뉴스를 검색하여 반환합니다.
-//     * 뉴스는 히스토리에 저장되며, 최대 5개까지 템플릿으로 전송됩니다.
-//     *
-//     * @param userId 사용자 고유 ID
-//     * @return 뉴스 리스트 {@code List<NewsEsDocument>}, 키워드가 없거나 오류 시 {@code null}
-//     */
-//    private List<NewsEsDocument> getNewsEsDocumentList(Long userId) {
-//
-//        //유저 정보를 기준으로 Settig값 가져오기
-//        List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
-//
-//        List<String> keywords = new ArrayList<>();
-//        List<String> blockKeywords = new ArrayList<>();
-//
-//        for (SettingDTO setting : settings) {
-//            log.info("셋팅값 확인용 코드 : " + setting.getSettingKeywords());
-//            log.info("셋팅 제외 확인용 코드 : " + setting.getBlockKeywords());
-//
-//            // 키워드리스트의 null 값 체크
-//            if (setting.getSettingKeywords() != null) {
-//                keywords.add(setting.getSettingKeywords().toString());
-//            }
-//
-//            blockKeywords.add(setting.getBlockKeywords().toString());
-//        }
-//
-//        if (keywords.isEmpty()) {
-//            log.error("설정된 키워드가 없습니다.");
-//            throw new KakaoException(ErrorCode.SETTING_NOT_FOUND);
-//        }
-//
-//        //키워드별 뉴스 검색
-//        List<NewsEsDocument> newsList = newsService.searchNews(keywords, blockKeywords);
-//
-//        log.info("검색된 뉴스 수: {}", newsList.size());
-//        newsList.forEach(n -> log.info("뉴스: {} - {}", n.getPublisher(), n.getSummary()));
-//
-//        // 검색된 뉴스를 히스토리로 보내는 코드
-//        if (saveHistory(newsList, settings)) return null;
-//        return newsList;
-//    }
+    // /**
+    // * 사용자의 Setting 정보를 기반으로 키워드에 해당하는 뉴스를 검색하여 반환합니다.
+    // * 뉴스는 히스토리에 저장되며, 최대 5개까지 템플릿으로 전송됩니다.
+    // *
+    // * @param userId 사용자 고유 ID
+    // * @return 뉴스 리스트 {@code List<NewsEsDocument>}, 키워드가 없거나 오류 시 {@code null}
+    // */
+    // private List<NewsEsDocument> getNewsEsDocumentList(Long userId) {
+    //
+    // //유저 정보를 기준으로 Settig값 가져오기
+    // List<SettingDTO> settings = settingService.getAllSettingsByUserId(userId);
+    //
+    // List<String> keywords = new ArrayList<>();
+    // List<String> blockKeywords = new ArrayList<>();
+    //
+    // for (SettingDTO setting : settings) {
+    // log.info("셋팅값 확인용 코드 : " + setting.getSettingKeywords());
+    // log.info("셋팅 제외 확인용 코드 : " + setting.getBlockKeywords());
+    //
+    // // 키워드리스트의 null 값 체크
+    // if (setting.getSettingKeywords() != null) {
+    // keywords.add(setting.getSettingKeywords().toString());
+    // }
+    //
+    // blockKeywords.add(setting.getBlockKeywords().toString());
+    // }
+    //
+    // if (keywords.isEmpty()) {
+    // log.error("설정된 키워드가 없습니다.");
+    // throw new KakaoException(ErrorCode.SETTING_NOT_FOUND);
+    // }
+    //
+    // //키워드별 뉴스 검색
+    // List<NewsEsDocument> newsList = newsService.searchNews(keywords,
+    // blockKeywords);
+    //
+    // log.info("검색된 뉴스 수: {}", newsList.size());
+    // newsList.forEach(n -> log.info("뉴스: {} - {}", n.getPublisher(),
+    // n.getSummary()));
+    //
+    // // 검색된 뉴스를 히스토리로 보내는 코드
+    // if (saveHistory(newsList, settings)) return null;
+    // return newsList;
+    // }
 
 }
