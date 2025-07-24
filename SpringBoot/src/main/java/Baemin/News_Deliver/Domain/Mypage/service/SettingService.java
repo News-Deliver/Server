@@ -284,4 +284,13 @@ public class SettingService {
     public Setting getById(Long settingId) {
         return settingRepository.findById(settingId).get();
     }
+
+    @Transactional(readOnly = true)
+    public SettingDTO getSettingById(Long id) {
+        Setting setting = settingRepository.findById(id)
+                .orElseThrow(() -> new SettingException(ErrorCode.SETTING_NOT_FOUND));
+
+        return convertToDTO(setting);
+    }
+
 }
