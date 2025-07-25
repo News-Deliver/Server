@@ -2,6 +2,7 @@ package Baemin.News_Deliver.Domain.Kakao.service;
 
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -26,17 +27,51 @@ public class KakaoNewsService {
     private final ElasticsearchClient client;
 
     /**
-     * Hot Fixed
+     * 뉴스가 5개 미만일 경우 fallback 로직 적용하는 메서드
      *
+     * @param includeKeywords 포함 키워드
+     * @param blockKeywords 제외 키워드
+     * @return 뉴스 리스트
+     */
+    public List<NewsEsDocument> searchNewsWithFallback(List<String> includeKeywords, List<String> blockKeywords) {
+        List<NewsEsDocument> result = searchNewsByDateRange(includeKeywords, blockKeywords, 1); // 어제 기준
+
+        if (result.size() < 5) {
+            log.info("⚠뉴스 부족 → 최근 7일간으로 fallback");
+            result = searchNewsByDateRange(includeKeywords, blockKeywords, 7); // fallback
+        }
+
+        // 최대 5개 제한
+        return result.size() > 5 ? result.subList(0, 5) : result;
+    }
+
+    /**
+     * 어제의 뉴스만 검색하는 메서드
      *
      * @param includeKeywords 포함 키워드
      * @param blockKeywords 제외 키워드
      * @return 뉴스 리스트
      */
     public List<NewsEsDocument> searchNews(List<String> includeKeywords, List<String> blockKeywords) {
-        try {
-            LocalDate yesterday = LocalDate.now().minusDays(1);
 
+        // 어제의 뉴스만 검색하기에 { 검색 기간 : 1 }로 설정
+        return searchNewsByDateRange(includeKeywords, blockKeywords, 1);
+    }
+
+    /**
+     * 날짜 범위를 받는 뉴스 검색 메서드
+     *
+     * @param includeKeywords 포함 키워드
+     * @param blockKeywords 제외 키워드
+     * @param fromDaysAgo 검색할 기간
+     * @return 뉴스 리스트
+     */
+    public List<NewsEsDocument> searchNewsByDateRange(List<String> includeKeywords, List<String> blockKeywords, int fromDaysAgo) {
+        try {
+            LocalDate now = LocalDate.now();
+            LocalDate fromDate = now.minusDays(fromDaysAgo);
+
+            // 포함 키워드 쿼리
             Query includeKeywordQuery = Query.of(q -> q
                     .bool(b -> b
                             .should(includeKeywords.stream()
@@ -53,21 +88,21 @@ public class KakaoNewsService {
                     )
             );
 
+            // 날짜 필터 (fromDate ~ now)
             Query dateFilter = Query.of(q -> q
                     .range(r -> r
                             .field("published_at")
-                            .gte(JsonData.of(yesterday.toString()))
-                            .lte(JsonData.of(yesterday.toString()))
+                            .gte(JsonData.of(fromDate.toString()))
+                            .lte(JsonData.of(now.toString()))
                             .format("yyyy-MM-dd")
                     )
             );
 
-            // 쿼리 리스트 조합
             List<Query> mustQueries = new ArrayList<>();
             mustQueries.add(includeKeywordQuery);
             mustQueries.add(dateFilter);
 
-            // 제외 키워드가 있는 경우에만 must_not 추가
+            // 제외 키워드 처리
             Query finalQuery;
             if (blockKeywords != null && !blockKeywords.isEmpty()) {
                 Query excludeKeywordQuery = Query.of(q -> q
@@ -99,12 +134,13 @@ public class KakaoNewsService {
                 );
             }
 
+            // Elasticsearch 검색 요청
             SearchRequest request = SearchRequest.of(s -> s
                     .index("news-index-nori")
                     .query(finalQuery)
                     .size(5)
                     .sort(sort -> sort
-                            .score(sc -> sc.order(co.elastic.clients.elasticsearch._types.SortOrder.Desc))
+                            .score(sc -> sc.order(SortOrder.Desc))
                     )
             );
 
@@ -124,22 +160,33 @@ public class KakaoNewsService {
         }
     }
 
+
+
+    // ======================= Deprecated =========================
+    // ======================= Deprecated =========================
+    // ======================= Deprecated =========================
+    // ======================= Deprecated =========================
     // ======================= Deprecated =========================
 
 //    /**
-//     * 사용자의 키워드를 리스트로 묶어 뉴스 검색 메서드에 전달
+//     * 유저의 정보를 받아 뉴스를 전송하는 메서드
+//     *
+//     * Hot Fix
+//     * What : 제외 키워드가 없을 시에도 문자가 전송되도록 수정
+//     * Why : 제외 키워드가 없을 시 에러 발생
+//     * When : 2025-07-24
+//     * How : 류성열
+//     *
+//     * Deprecated된 메서드는 하단에 정리하였습니다.
 //     *
 //     * @param includeKeywords 포함 키워드
 //     * @param blockKeywords 제외 키워드
-//     * @return
+//     * @return 뉴스 리스트
 //     */
 //    public List<NewsEsDocument> searchNews(List<String> includeKeywords, List<String> blockKeywords) {
 //        try {
-//
-//            /* 전날 기준으로 시간을 측정 */
 //            LocalDate yesterday = LocalDate.now().minusDays(1);
 //
-//            /* 포함 키워드 쿼리 */
 //            Query includeKeywordQuery = Query.of(q -> q
 //                    .bool(b -> b
 //                            .should(includeKeywords.stream()
@@ -156,23 +203,6 @@ public class KakaoNewsService {
 //                    )
 //            );
 //
-//            /* 제외 키워드 쿼리 */
-//            Query excludeKeywordQuery = Query.of(q -> q
-//                    .bool(b -> b
-//                            .should(blockKeywords.stream()
-//                                    .map(kw -> Query.of(q2 -> q2
-//                                            .multiMatch(m -> m
-//                                                    .query(kw)
-//                                                    .fields("title", "summary", "content_url", "publisher")
-//                                                    .type(TextQueryType.BoolPrefix)
-//                                            )
-//                                    ))
-//                                    .collect(Collectors.toList())
-//                            )
-//                    )
-//            );
-//
-//            /* 날짜 필터 쿼리 */
 //            Query dateFilter = Query.of(q -> q
 //                    .range(r -> r
 //                            .field("published_at")
@@ -182,16 +212,43 @@ public class KakaoNewsService {
 //                    )
 //            );
 //
-//            /* 전체 쿼리 조합 */
-//            Query finalQuery = Query.of(q -> q
-//                    .bool(b -> b
-//                            .must(includeKeywordQuery)
-//                            .must(dateFilter)
-//                            .mustNot(excludeKeywordQuery)
-//                    )
-//            );
+//            // 쿼리 리스트 조합
+//            List<Query> mustQueries = new ArrayList<>();
+//            mustQueries.add(includeKeywordQuery);
+//            mustQueries.add(dateFilter);
 //
-//            /* 검색 요청 */
+//            // 제외 키워드가 있는 경우에만 must_not 추가
+//            Query finalQuery;
+//            if (blockKeywords != null && !blockKeywords.isEmpty()) {
+//                Query excludeKeywordQuery = Query.of(q -> q
+//                        .bool(b -> b
+//                                .should(blockKeywords.stream()
+//                                        .map(kw -> Query.of(q2 -> q2
+//                                                .multiMatch(m -> m
+//                                                        .query(kw)
+//                                                        .fields("title", "summary", "content_url", "publisher")
+//                                                        .type(TextQueryType.BoolPrefix)
+//                                                )
+//                                        ))
+//                                        .collect(Collectors.toList())
+//                                )
+//                        )
+//                );
+//
+//                finalQuery = Query.of(q -> q
+//                        .bool(b -> b
+//                                .must(mustQueries)
+//                                .mustNot(excludeKeywordQuery)
+//                        )
+//                );
+//            } else {
+//                finalQuery = Query.of(q -> q
+//                        .bool(b -> b
+//                                .must(mustQueries)
+//                        )
+//                );
+//            }
+//
 //            SearchRequest request = SearchRequest.of(s -> s
 //                    .index("news-index-nori")
 //                    .query(finalQuery)
@@ -201,15 +258,12 @@ public class KakaoNewsService {
 //                    )
 //            );
 //
-//            /* 검색 수행 */
 //            SearchResponse<NewsEsDocument> response = client.search(request, NewsEsDocument.class);
 //
-//            /* 로그: 스코어 확인 */
 //            response.hits().hits().forEach(hit ->
 //                    log.info("{} | score: {}", hit.source().getTitle(), hit.score())
 //            );
 //
-//            /* 결과 반환 */
 //            return response.hits().hits().stream()
 //                    .map(hit -> hit.source())
 //                    .collect(Collectors.toList());
@@ -219,4 +273,5 @@ public class KakaoNewsService {
 //            return List.of();
 //        }
 //    }
+
 }

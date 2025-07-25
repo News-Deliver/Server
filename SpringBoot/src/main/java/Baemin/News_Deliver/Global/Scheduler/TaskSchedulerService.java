@@ -78,10 +78,6 @@ public class TaskSchedulerService {
     public void scheduleUser(Setting setting) {
         Long settingId = setting.getId();
 
-        // findByIdWithAllAssociations 사용
-        // setting = settingRepository.findByIdWithAllAssociations(settingId)
-        // .orElseThrow(() -> new KakaoException(ErrorCode.SETTING_NOT_FOUND));
-        // Fetch Join으로 days 미리 가져와서 LazyInitializationException 방지
         setting = settingRepository.findByIdWithDays(settingId)
                 .orElseThrow(() -> new KakaoException(ErrorCode.SETTING_NOT_FOUND));
 
@@ -109,30 +105,12 @@ public class TaskSchedulerService {
 
             try {
 
-                /**
-                 *
-                 * Hot Fix : Setting Keyword Feth Join 문제 해결 시도
-                 *
-                 *
-                 */
                 Optional<Setting> optionalSetting = settingRepository.findByIdWithDays(settingId);
-                // Optional<Setting> optionalSetting =
-                // settingRepository.findByIdWithAllAssociations(settingId); //안됨됨
-                // Optional<Setting> optionalSetting = settingRepository.findById(settingId);
 
                 if (optionalSetting.isEmpty()) {
                     log.warn("[Scheduler] 유저 {} / setting {} 설정 정보가 없음", userId, settingId);
                     throw new KakaoException(ErrorCode.SETTING_NOT_FOUND);
                 }
-
-                Setting settings = optionalSetting.get();
-
-                // blockKeywords, keywords가 꼭 필요하다면 강제 초기화
-                // Hibernate.initialize(settings.getBlockKeywords());
-                // Hibernate.initialize(settings.getKeywords());
-
-                // log.info("[Scheduler] 유저 {} / setting {} 키워드: {}, 제외 키워드: {}",
-                // userId, settingId, settings.getKeywords(), settings.getBlockKeywords());
 
                 kakaoMessageService.sendKakaoMessage(refreshAccessToken, userId);
 
