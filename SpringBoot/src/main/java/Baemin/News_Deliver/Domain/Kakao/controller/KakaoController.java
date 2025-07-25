@@ -114,6 +114,7 @@ public class KakaoController {
         List<String> keyword = null;
         List<String> blockKeyword = null;
 
-        return ResponseEntity.ok(newsSearchService.searchNews(keyword, blockKeyword));
+        // return ResponseEntity.ok(newsSearchService.searchNews(keyword, blockKeyword));
+        return ResponseEntity.ok(newsSearchService.searchNewsWithFallback(keyword, blockKeyword));
     }
 }
