@@ -13,7 +13,8 @@ public class ExecutionTimeAspect {
 
     private static final Logger log = LoggerFactory.getLogger(ExecutionTimeAspect.class);
 
-    @Around("execution(* Baemin.News_Deliver.Domain.SubServices.MoreNews.Controller..*(..))")
+    @Around("execution(* Baemin.News_Deliver.Domain.SubServices.MoreNews.Controller..*(..)) || " +
+            "execution(* Baemin.News_Deliver.Domain.Mypage.Controller..*(..))")
     public Object logExecutionTime(ProceedingJoinPoint joinPoint) throws Throwable {
         long start = System.currentTimeMillis();
 

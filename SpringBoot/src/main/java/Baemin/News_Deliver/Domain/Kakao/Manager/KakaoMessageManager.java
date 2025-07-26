@@ -184,6 +184,7 @@ public class KakaoMessageManager {
      * @param newsList    뉴스 리스트
      * @return T,F
      */
+    @CacheEvict(value = "groupedNewsHistory", allEntries = true)
     public boolean sendSingleKakaoMessage(String accessToken, List<NewsEsDocument> newsList) {
         try {
 

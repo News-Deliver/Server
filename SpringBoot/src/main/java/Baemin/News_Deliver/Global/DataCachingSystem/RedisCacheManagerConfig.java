@@ -1,5 +1,6 @@
 package Baemin.News_Deliver.Global.DataCachingSystem;
 
+import Baemin.News_Deliver.Domain.Mypage.DTO.SettingDTO;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.GroupedNewsHistoryResponse;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.PageResponse;
 import com.fasterxml.jackson.databind.JavaType;
@@ -20,6 +21,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Configuration
@@ -71,13 +73,28 @@ public class RedisCacheManagerConfig {
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(genericSerializer));
 
+        // ======================= 설정 페이지 캐시 설정 =========================
+
+        JavaType settingListType = objectMapper.getTypeFactory()
+                .constructCollectionType(List.class, SettingDTO.class);
+
+        Jackson2JsonRedisSerializer<List<SettingDTO>> settingDTOSerializer = new Jackson2JsonRedisSerializer<>(settingListType);
+        settingDTOSerializer.setObjectMapper(objectMapper);
+
+        RedisCacheConfiguration userSettingCacheConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(15)) // TTL 15분
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(settingDTOSerializer));
+
+        //.serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(genericSerializer));
+
         // ======================= 커스터 마이징 캐시 설정 =========================
 
         // 개발자 커스터마이징 캐시 생성
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
         cacheConfigurations.put("groupedNewsHistory", getGroupedNewsHistoryConfig);
         cacheConfigurations.put("moreNewsByHistory", moreNewsByHistoryConfig);
-
+        cacheConfigurations.put("userSettingCache", userSettingCacheConfig);
 
         // =======================내 히스토리 조회하기 캐싱 전략 =========================
 
