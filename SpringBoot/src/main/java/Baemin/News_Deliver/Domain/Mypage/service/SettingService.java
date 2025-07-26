@@ -15,12 +15,13 @@ import Baemin.News_Deliver.Domain.Mypage.Repository.SettingRepository;
 import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * 뉴스 배달 설정(Setting) 도메인 서비스
@@ -59,7 +60,11 @@ public class SettingService {
      * @return 생성된 Setting ID
      */
     @Transactional
+    @CacheEvict(value = "userSettingCache", key = "'user:' + #settingDTO.userId")
     public Long saveSetting(SettingDTO settingDTO) {
+
+        log.info("[Cache Evict] {}번 유저 Setting 캐시 삭제(세팅 저장 API 호출)",settingDTO.getUserId());
+
         User user = userRepository.findById(settingDTO.getUserId())
                 .orElseThrow(() -> new SettingException(ErrorCode.USER_NOT_FOUND));
 
@@ -76,6 +81,7 @@ public class SettingService {
                 .build();
 
         /**
+         * Add for Bug_Fix
          * What : Setting 객체 저장 코드
          * Why : Setting 데이터 저장 없이,  자식 관계인 SettingKeyword는 저장되는 상황 발생 -> Error 발생
          * When : 2025-07-21
@@ -103,7 +109,11 @@ public class SettingService {
      * @return 204 No Content 응답
      */
     @Transactional
+    @CacheEvict(value = "userSettingCache", key = "'user:' + #settingDTO.userId")
     public void updateSetting(SettingDTO settingDTO) {
+
+        log.info("[Cache Evict] {}번 유저 Setting 캐시 삭제(세팅 수정 API 호출)",settingDTO.getUserId());
+
         Setting setting = settingRepository.findById(settingDTO.getId())
                 .orElseThrow(() -> new SettingException(ErrorCode.SETTING_NOT_FOUND));
 
@@ -142,7 +152,11 @@ public class SettingService {
      * @return 사용자 설정 리스트
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "userSettingCache", key = "'user:' + #userId")
     public List<SettingDTO> getAllSettingsByUserId(Long userId) {
+
+        log.info("[Cache Miss] {}번 유저 Setting 캐시 miss(세팅 조회 API 호출)",userId);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new SettingException(ErrorCode.USER_NOT_FOUND));
 
@@ -164,7 +178,10 @@ public class SettingService {
      * @return 204 No Content 응답
      */
     @Transactional
+    @CacheEvict(value = "userSettingCache", key = "'user:' + #userId")
     public void deleteSetting(Long settingId, Long userId) {
+
+        log.info("[Cache Evict] {}번 유저 Setting 캐시 삭제(세팅 삭제 API 호출)",userId);
         Setting setting = settingRepository.findById(settingId)
                 .orElseThrow(() -> new SettingException(ErrorCode.SETTING_NOT_FOUND));
 

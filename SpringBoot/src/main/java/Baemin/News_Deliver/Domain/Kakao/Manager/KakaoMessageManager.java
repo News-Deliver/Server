@@ -17,6 +17,7 @@ import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
@@ -121,10 +122,13 @@ public class KakaoMessageManager {
     /**
      * 전송된 뉴스 정보를 히스토리로 저장합니다. 중복 뉴스는 저장하지 않습니다.
      *
+     * 히스토리 저장 시 히스토리 조회 캐시 삭제
+     *
      * @param newsList 뉴스 리스트
      * @param settings 해당 뉴스에 적용된 사용자 설정들
      * @return 저장이 이루어진 경우 true, 아무 것도 저장되지 않았으면 false
      */
+    @CacheEvict(value = "groupedNewsHistory", allEntries = true)
     public boolean saveHistory(List<NewsEsDocument> newsList, List<SettingDTO> settings) {
         if (newsList == null || newsList.isEmpty()) {
             log.warn("해당 키워드로 검색된 뉴스가 없습니다.");
@@ -180,6 +184,7 @@ public class KakaoMessageManager {
      * @param newsList    뉴스 리스트
      * @return T,F
      */
+    @CacheEvict(value = "groupedNewsHistory", allEntries = true)
     public boolean sendSingleKakaoMessage(String accessToken, List<NewsEsDocument> newsList) {
         try {
 
@@ -218,11 +223,6 @@ public class KakaoMessageManager {
      * @return T,F
      */
     public void processSetting(String accessToken, SettingDTO setting) {
-
-         /* deprecated */
-//        // 뉴스 검색
-//        List<NewsEsDocument> newsList = kakaoNewsService.searchNews(
-//                setting.getSettingKeywords(), setting.getBlockKeywords());
 
         // 뉴스 검색
         List<NewsEsDocument> newsList = kakaoNewsService.searchNewsWithFallback(
