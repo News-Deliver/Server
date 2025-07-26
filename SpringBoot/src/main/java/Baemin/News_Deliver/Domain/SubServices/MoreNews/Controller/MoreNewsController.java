@@ -2,6 +2,7 @@ package Baemin.News_Deliver.Domain.SubServices.MoreNews.Controller;
 
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.GroupedNewsHistoryResponse;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.PageResponse;
+import Baemin.News_Deliver.Domain.SubServices.MoreNews.Service.HistoryService;
 import Baemin.News_Deliver.Domain.SubServices.MoreNews.Service.MoreNewsService;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import Baemin.News_Deliver.Global.ResponseObject.ApiResponseWrapper;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/sub/history")
@@ -23,6 +26,7 @@ import java.util.List;
 public class MoreNewsController {
 
     private final MoreNewsService moreNewsService;
+    private final HistoryService historyService;
 
     /**
      * 뉴스 더보기 API
@@ -67,8 +71,9 @@ public class MoreNewsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "3") int size
     ) {
+
         // 내 히스토리 조회하기 서비스 레이어 호출
-        PageResponse<GroupedNewsHistoryResponse> groupedList  = moreNewsService.getGroupedNewsHistory(page, size, authentication);
+        PageResponse<GroupedNewsHistoryResponse> groupedList  = historyService.getGroupedNewsHistory(page, size, authentication);
 
         return ResponseEntity.ok(new ApiResponseWrapper<>(groupedList, "히스토리가 성공적으로 조회되었습니다."));
     }

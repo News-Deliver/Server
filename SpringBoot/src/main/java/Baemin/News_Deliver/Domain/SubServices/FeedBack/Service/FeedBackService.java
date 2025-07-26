@@ -9,6 +9,7 @@ import Baemin.News_Deliver.Domain.SubServices.FeedBack.Repository.FeedbackReposi
 import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -26,13 +27,15 @@ public class FeedBackService {
     /**
      * 키워드 반영도 피드백 메서드
      *
+     * 빠르게 구현해야 해서 캐시는 전부 삭제로 임시 구현
+     *
      * @param request 피드백 요청 DTO
      * @return 피드백 결과 반환
      */
+    @CacheEvict(value = "groupedNewsHistory", allEntries = true)
     public Long keywordFeedBack(FeedbackRequest request){
 
-        // 임시 하드코딩
-        // Long userId = 1L;
+        log.info("[CacheEvict] 피드백 API 호출로 인한, 히스토리 캐시 삭제");
 
         /* 피드백 객체 반환 */
         Optional<Feedback> optionalFeedback = feedbackRepository.findById(request.getHistoryId());
@@ -77,10 +80,15 @@ public class FeedBackService {
     /**
      * 콘텐츠 품질 피드백 메서드
      *
+     * 빠르게 구현해야 해서 캐시는 전부 삭제로 임시 구현
+     *
      * @param request 피드백 요청 DTO
      * @return 피드백 결과 반환
      */
+    @CacheEvict(value = "groupedNewsHistory", allEntries = true)
     public Long contentQualityFeedback(FeedbackRequest request) {
+
+        log.info("[CacheEvict] 피드백 API 호출로 인한, 히스토리 캐시 삭제");
 
         // 피드백 조회
         Optional<Feedback> optionalFeedback = feedbackRepository.findById(request.getHistoryId());
