@@ -1,14 +1,8 @@
 package Baemin.News_Deliver.Domain.SubServices.MoreNews.Service;
 
-import Baemin.News_Deliver.Domain.Auth.Service.AuthService;
 import Baemin.News_Deliver.Domain.Kakao.entity.History;
 import Baemin.News_Deliver.Domain.Kakao.repository.HistoryRepository;
 import Baemin.News_Deliver.Domain.SubServices.Exception.SubServicesException;
-import Baemin.News_Deliver.Domain.SubServices.FeedBack.Entity.Feedback;
-import Baemin.News_Deliver.Domain.SubServices.FeedBack.Repository.FeedbackRepository;
-import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.GroupedNewsHistoryResponse;
-import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.NewsHistoryResponse;
-import Baemin.News_Deliver.Domain.SubServices.MoreNews.DTO.PageResponse;
 import Baemin.News_Deliver.Global.Exception.ErrorCode;
 import Baemin.News_Deliver.Global.News.ElasticSearch.dto.NewsEsDocument;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
@@ -20,13 +14,12 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,11 +28,7 @@ import java.util.stream.Collectors;
 public class MoreNewsService {
 
     private final HistoryRepository historyRepository;
-    private final FeedbackRepository feedbackRepository;
     private final ElasticsearchClient client;
-    private final AuthService authService;
-
-    // ======================= 뉴스 추가 검색 메서드 =========================
 
     /**
      * 뉴스 추가 검색 메서드
@@ -95,6 +84,8 @@ public class MoreNewsService {
                 )
         );
 
+
+
         // 제외 키워드 쿼리
         Query excludeKeywordQuery = Query.of(q -> q
                 .bool(b -> b
@@ -121,14 +112,35 @@ public class MoreNewsService {
                 )
         );
 
+        Query finalQuery;
+        if (blockKeywords != null && !blockKeywords.isEmpty()) {
+            // excludeKeywordQuery 만들고 mustNot에 추가
+            finalQuery = Query.of(q -> q
+                    .bool(b -> b
+                            .must(includeKeywordQuery)
+                            .must(dateFilter)
+                            .mustNot(excludeKeywordQuery)
+                    )
+            );
+        } else {
+            // mustNot 제외
+            finalQuery = Query.of(q -> q
+                    .bool(b -> b
+                            .must(includeKeywordQuery)
+                            .must(dateFilter)
+                    )
+            );
+        }
+
+
         // 전체 쿼리 (키워드와 블랙 키워드를 포함한 전체 쿼리)
-        Query finalQuery = Query.of(q -> q
-                .bool(b -> b
-                        .must(includeKeywordQuery)
-                        .must(dateFilter)
-                        .mustNot(excludeKeywordQuery)
-                )
-        );
+//        Query finalQuery = Query.of(q -> q
+//                .bool(b -> b
+//                        .must(includeKeywordQuery)
+//                        .must(dateFilter)
+//                        .mustNot(excludeKeywordQuery)
+//                )
+//        );
 
         // 검색 엔진
         SearchRequest request = SearchRequest.of(s -> s
@@ -154,150 +166,5 @@ public class MoreNewsService {
                 .map(Hit::source)
                 .toList();
     }
-
-    // ======================= 내 히스토리 조회하기 메서드 =========================
-
-    /**
-     * 내 히스토리 조회하기 메서드 Ver2.0
-     *
-     * Updated
-     * Why : 프론트 레이어에서 페이지 네이셔닝을 위한 정보 부족
-     * How : 반환 DTO에 페이지네이션 정보 추가
-     * When : 2025-07-21
-     * Who : 류성열
-     *
-     * @param page 현재 페이지
-     * @param size 페이지 사이즈
-     * @return 페이지 정보 + 페이지 데이터
-     */
-    public PageResponse<GroupedNewsHistoryResponse> getGroupedNewsHistory(int page, int size, Authentication authentication) {
-
-        // 인증 객체에서 카카오 ID 추출
-        String kakaoId = authentication.getName();
-        Long userId = authService.findByKakaoId(kakaoId).getId();
-
-        List<History> allHistories = historyRepository.findAllBySetting_User_Id(userId);
-
-        List<Long> historyIds = allHistories.stream()
-                .map(History::getId)
-                .toList();
-
-        Map<Long, Feedback> feedbackMap = feedbackRepository.findAllById(historyIds)
-                .stream()
-                .collect(Collectors.toMap(fb -> fb.getHistory().getId(), fb -> fb));
-
-        Map<String, List<History>> grouped = allHistories.stream()
-                .collect(Collectors.groupingBy(h -> {
-                    Long settingId = h.getSetting().getId();
-                    LocalDateTime truncatedPublishedAt = h.getPublishedAt().truncatedTo(ChronoUnit.HOURS);
-                    return settingId + "_" + truncatedPublishedAt;
-                }));
-
-        List<GroupedNewsHistoryResponse> groupedList = grouped.entrySet().stream()
-                .map(entry -> {
-                    List<History> histories = entry.getValue();
-                    History any = histories.get(0);
-
-                    List<NewsHistoryResponse> newsResponses = histories.stream()
-                            .map(history -> {
-                                Feedback feedback = feedbackMap.get(history.getId());
-                                return NewsHistoryResponse.from(history, feedback);
-                            })
-                            .toList();
-
-                    return GroupedNewsHistoryResponse.builder()
-                            .settingId(any.getSetting().getId())
-                            .publishedAt(any.getPublishedAt().truncatedTo(ChronoUnit.HOURS))
-                            .settingKeyword(any.getSettingKeyword())
-                            .blockKeyword(any.getBlockKeyword())
-                            .newsList(newsResponses)
-                            .build();
-                })
-                .sorted(Comparator.comparing(GroupedNewsHistoryResponse::getPublishedAt).reversed())
-                .toList();
-
-        int total = groupedList.size();
-        int fromIndex = page * size;
-        int toIndex = Math.min(fromIndex + size, total);
-
-        List<GroupedNewsHistoryResponse> paginated = fromIndex >= total
-                ? Collections.emptyList()
-                : groupedList.subList(fromIndex, toIndex);
-
-        return PageResponse.<GroupedNewsHistoryResponse>builder()
-                .data(paginated)
-                .currentPage(page)
-                .pageSize(size)
-                .totalPages((int) Math.ceil((double) total / size))
-                .totalElements(total)
-                .build();
-    }
-
-    // ======================= Deprecated =========================
-
-    /**
-     * 내 히스토리 조회하기 메서드 (페이지 네이션 적용)
-     *
-     * @param page 시작 페이지
-     * @param size 페이지 사이즈
-     * @return 페이지 네이션이 적용된 히스토리
-     */
-//    public PageResponse<GroupedNewsHistoryResponse> getGroupedNewsHistory(int page, int size) {
-//        Long userId = 1L;
-//
-//        // 1. 모든 히스토리 조회
-//        List<History> allHistories = historyRepository.findAllBySetting_User_Id(userId);
-//
-//        // 2. 히스토리 ID 수집 → Feedback 일괄 조회
-//        List<Long> historyIds = allHistories.stream()
-//                .map(History::getId)
-//                .collect(Collectors.toList());
-//
-//        Map<Long, Feedback> feedbackMap = feedbackRepository.findAllById(historyIds)
-//                .stream()
-//                .collect(Collectors.toMap(fb -> fb.getHistory().getId(), fb -> fb));
-//
-//        // 3. 그룹핑: settingId + publishedAt(HOUR)
-//        Map<String, List<History>> grouped = allHistories.stream()
-//                .collect(Collectors.groupingBy(h -> {
-//                    Long settingId = h.getSetting().getId();
-//                    LocalDateTime truncatedPublishedAt = h.getPublishedAt().truncatedTo(ChronoUnit.HOURS);
-//                    return settingId + "_" + truncatedPublishedAt;
-//                }));
-//
-//        // 4. DTO 변환
-//        List<GroupedNewsHistoryResponse> groupedList = grouped.entrySet().stream()
-//                .map(entry -> {
-//                    List<History> histories = entry.getValue();
-//                    History any = histories.get(0);
-//
-//                    List<NewsHistoryResponse> newsResponses = histories.stream()
-//                            .map(history -> {
-//                                Feedback feedback = feedbackMap.get(history.getId());
-//                                return NewsHistoryResponse.from(history, feedback);
-//                            })
-//                            .toList();
-//
-//                    return GroupedNewsHistoryResponse.builder()
-//                            .settingId(any.getSetting().getId())
-//                            .publishedAt(any.getPublishedAt().truncatedTo(ChronoUnit.HOURS))
-//                            .settingKeyword(any.getSettingKeyword())
-//                            .blockKeyword(any.getBlockKeyword())
-//                            .newsList(newsResponses)
-//                            .build();
-//                })
-//                .sorted(Comparator.comparing(GroupedNewsHistoryResponse::getPublishedAt).reversed())
-//                .collect(Collectors.toList());
-//
-//        // 5. 페이지네이션
-//        int fromIndex = page * size;
-//        int toIndex = Math.min(fromIndex + size, groupedList.size());
-//
-//        if (fromIndex >= groupedList.size()) {
-//            return Collections.emptyList();
-//        }
-//
-//        return groupedList.subList(fromIndex, toIndex);
-//    }
 
 }
