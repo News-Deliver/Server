@@ -14,6 +14,7 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -37,32 +38,37 @@ public class MoreNewsService {
      * @return 15개의 뉴스 기사 리스트
      * @throws IOException IO 예외
      */
+    @Cacheable(
+            value = "moreNewsByHistory",
+            key = "#historyId",
+            cacheManager = "redisCacheManager"
+    )
     public List<NewsEsDocument> getMoreNews(Long historyId) throws IOException {
+
+        log.info("[Cache Miss] {}번 히스토리 뉴스 더보기 캐시 미스 : ES를 가동합니다.", historyId);
 
         /* 히스토리 객체 반환 */
         History history = historyRepository.findById(historyId)
                 .orElseThrow(() -> new SubServicesException(ErrorCode.HISTORY_NOT_FOUND));
-        log.info("히스토리 객체 반환 성공 : {}", history);
 
         /* 히스토리 세부 정보 반환 */
         String settingKeyword = history.getSettingKeyword(); // 설정 키워드 반환
         String blockKeyword = history.getBlockKeyword(); // 제외 키워드
         LocalDateTime publishedAt = history.getPublishedAt(); // 날짜
-        log.info("히스토리 세부 정보 반환 (settingKeyword,publishedAt, blockKeyword) : {},{},{}", settingKeyword,publishedAt, blockKeyword);
 
         // settingKeyword 문자열을 리스트로 변환
         List<String> settingKeywords = Arrays.stream(settingKeyword.split(","))
                 .map(String::trim)        // 공백 제거
                 .filter(s -> !s.isEmpty()) // 빈 문자열 제거
                 .toList();
-        log.info("설정 리스트 반환 : {}", settingKeywords);
+        log.info("설정 리스트 : {}", settingKeywords);
 
         // blockKeyword 문자열을 리스트로 변환
         List<String> blockKeywords = Arrays.stream(blockKeyword.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .toList();
-        log.info("제외 리스트 반환 : {}", blockKeywords);
+        log.info("제외 리스트 : {}", blockKeywords);
 
         /* Elastic Search 검색 엔진 호출 : List 반환 */
 
@@ -83,8 +89,6 @@ public class MoreNewsService {
                         .minimumShouldMatch("1")
                 )
         );
-
-
 
         // 제외 키워드 쿼리
         Query excludeKeywordQuery = Query.of(q -> q
@@ -132,16 +136,6 @@ public class MoreNewsService {
             );
         }
 
-
-        // 전체 쿼리 (키워드와 블랙 키워드를 포함한 전체 쿼리)
-//        Query finalQuery = Query.of(q -> q
-//                .bool(b -> b
-//                        .must(includeKeywordQuery)
-//                        .must(dateFilter)
-//                        .mustNot(excludeKeywordQuery)
-//                )
-//        );
-
         // 검색 엔진
         SearchRequest request = SearchRequest.of(s -> s
                 .index("news-index-nori")
@@ -151,14 +145,14 @@ public class MoreNewsService {
                         .score(sc -> sc.order(co.elastic.clients.elasticsearch._types.SortOrder.Desc))
                 )
         );
-        log.info("검색 엔진 결과  : {}", request);
+        //log.info("검색 엔진 결과  : {}", request);
 
         SearchResponse<NewsEsDocument> response = client.search(request, NewsEsDocument.class);
         log.info("SearchResponse<NewsEsDocument> response : {}", response);
 
         response.hits().hits().forEach(hit -> {
             assert hit.source() != null;
-            log.info(" {} | score: {}", hit.source().getTitle(), hit.score());
+            // log.info(" {} | score: {}", hit.source().getTitle(), hit.score());
         });
 
         // 그대로 ES 문서 리스트 반환

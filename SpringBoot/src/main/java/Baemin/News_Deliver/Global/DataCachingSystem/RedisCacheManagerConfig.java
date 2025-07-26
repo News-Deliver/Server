@@ -64,12 +64,21 @@ public class RedisCacheManagerConfig {
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(getGroupedNewsHistory));
 
+        // ======================= 뉴스 더보기 캐시 설정 =========================
+
+        RedisCacheConfiguration moreNewsByHistoryConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofDays(3)) // TTL 3일
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(genericSerializer));
+
         // ======================= 커스터 마이징 캐시 설정 =========================
 
         // 개발자 커스터마이징 캐시 생성
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
         cacheConfigurations.put("groupedNewsHistory", getGroupedNewsHistoryConfig);
-        
+        cacheConfigurations.put("moreNewsByHistory", moreNewsByHistoryConfig);
+
+
         // =======================내 히스토리 조회하기 캐싱 전략 =========================
 
         // 캐시 최종 반환

@@ -49,7 +49,8 @@ public class HistoryService {
      */
     @Cacheable(
             value = "groupedNewsHistory",                    // Redis에서 사용할 캐시 이름
-            key = "'user:' + #authentication.name + ':page:' + #page + ':size:' + #size" // 캐시 Key
+            key = "'user:' + #authentication.name + ':page:' + #page + ':size:' + #size", // 캐시 Key
+            cacheManager = "redisCacheManager"
     )
     public PageResponse<GroupedNewsHistoryResponse> getGroupedNewsHistory(int page, int size, Authentication authentication) {
 
