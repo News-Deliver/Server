@@ -9,16 +9,19 @@
 
 KakaoTalk으로 배달하는 나만의 맞춤형 최신 뉴스 배달 서비스
 
----
+## 이미지
+<img width="2512" height="1316" alt="스크린샷 2025-07-28 152753" src="https://github.com/user-attachments/assets/eb6326e0-3b81-4b1c-9eec-af6eac7883d4" />
+<img width="1897" height="1051" alt="스크린샷 2025-07-28 152815" src="https://github.com/user-attachments/assets/23fc7c9f-3ca1-4928-becf-831fee33a200" />
+<img width="1876" height="1060" alt="스크린샷 2025-07-28 152825" src="https://github.com/user-attachments/assets/7d01d799-ebd4-45dc-98da-8a2c77871826" />
+<img width="1888" height="1049" alt="스크린샷 2025-07-28 152834" src="https://github.com/user-attachments/assets/652d6753-8482-49bf-80d4-4a36b9b9e223" />
+<img width="1884" height="1050" alt="스크린샷 2025-07-28 152842" src="https://github.com/user-attachments/assets/1b34df44-cd1b-45a9-a22f-4616c7b76a95" />
+<img width="1881" height="1057" alt="스크린샷 2025-07-28 152851" src="https://github.com/user-attachments/assets/27a29b16-4b82-43a4-9b2f-e1b41f3279a1" />
+<img width="1884" height="1058" alt="스크린샷 2025-07-28 152917" src="https://github.com/user-attachments/assets/3142ca43-2066-47bb-b055-4732c83f6e5a" />
+<img width="1877" height="1028" alt="스크린샷 2025-07-28 152925" src="https://github.com/user-attachments/assets/b87faa38-6623-498b-99ea-d32e6ca73f08" />
 
-##  Quick Links
-
-- [ 서비스 기획](url) - 핵심 기능, 역할분담, ERD
-- [ 개발 가이드](url) - 코드 컨벤션, API 명세, 브랜치 전략
-- [ 기술 스택 & 배포](url) - 인프라 구성, Docker, CI/CD
-- [ 협업 룰](url) - 팀 규칙, 일정 관리, 품질 기준
-- [ 진행 로그](url)
 ---
+## 시스템 아키텍쳐
+<img width="1870" height="1054" alt="스크린샷 2025-07-28 152908" src="https://github.com/user-attachments/assets/7f41a14e-ef44-4dbb-96d8-7b22a1053903" />
 
 ## 프로젝트 개요
 
@@ -31,41 +34,7 @@ KakaoTalk으로 배달하는 나만의 맞춤형 최신 뉴스 배달 서비스
 - Hot Topic Top 5 : 어제 가장 많이 언급된 키워드와 관련 뉴스 제공
 - AI 요약 : Spring AI를 활용한 뉴스 요약 서비스
 
----
 
-##  주요 기술 스택
-
-### Frontend
-- React 18 + TypeScript
-
-### Backend
-- Spring Boot 3.x + Spring Security (OAuth2.0)
-- Spring AI (뉴스 요약) + Spring Batch (데이터 수집)
-- JPA + MyBatis (데이터 접근)
-
-### Database & Search
-- MySQL 8.0 (메인 DB) + ElasticSearch 8.x (검색 엔진)
-- Redis 7.x (캐싱) + Nori Analyzer (한국어 형태소 분석)
-
-### Infrastructure
-- AWS (EC2, RDS, ElasticSearch Service, ElastiCache)
-- Docker + GitHub Actions (CI/CD)
-
----
-
-##  프로토타입
-
- 배포 링크 : [Korean News Service MVP](https://merry-crepe-479d93.netlify.app/)
-
----
-
-##  프로젝트 목표
-
-### 개발 전략
-
-빠른 MVP 구현 → 알파 테스팅 → 베타 테스팅 → 서비스 고도화
-
----
 
 ##  팀원별 역할 요약
 
@@ -76,31 +45,4 @@ KakaoTalk으로 배달하는 나만의 맞춤형 최신 뉴스 배달 서비스
 | **Backend - Message**           | 정다음   | - 뉴스 발송 요청 처리<br>- KakaoTalk API 연동<br>- 뉴스 발송 이력 저장 (History 관리) |
 | **Backend + Frontend - Sub & PM**          | 류성열   | - 더보기 기능: 키워드 기반 추가 뉴스 수집 (ElasticSearch)<br>- AI 요약: Top 5 기사 자동 요약<br>- 키워드 필터링 정책 수립<br>- 전체 기획/요구사항 정의 및 UX 설계<br>- 프로젝트 일정 관리  <br>- 뉴스 발송 요청 처리<br>- KakaoTalk API 연동<br>- 뉴스 발송 이력 저장 (History 관리) |
 
-##  핵심 참고 사항
-
-- 사용자 설정은 최대 3개까지 등록 가능
-- Hot Topic 키워드 5개 선정 - 각 topic 별 20개 기사 추출
-..
-
----
-
-## 주요 링크
-
-### 외부 API
-- Kakao Developers: [[카카오 개발자 문서](https://developers.kakao.com/)](https://developers.kakao.com/)
----
-
-## 최근 업데이트
-
-- 2025.07.05 :
-  - 🔹 초기 프로젝트 생성 및 GitHub 업로드
-  - 🔹 `application.properties` 프로필(dev/prod) 분리
-  - 🔹 예외 처리 시스템 구축 (GlobalExceptionHandler 등)
-  - 🔹 공통 응답 객체 클래스(Global Response) 구현
-  - 🔹 DB 연결 임시 해제로 초기 버그 대응
-  - 🔹 `.env` 파일 구현 (보안상 비공개, 공유 예정)
-- 2025.07.03 : 팀 구성 및 역할 분담 회의 진행  
-- 2025.07.01 : 프로젝트 기획 시작
-
----
 
