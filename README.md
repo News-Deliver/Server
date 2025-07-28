@@ -5,9 +5,16 @@
 **화면 설계서** : https://www.figma.com/design/b742hXQtI8IqTM3iyirWzR/Untitled?node-id=0-1&p=f&t=BDVVaoSPTOQTkpMc-0
 
 
+
 # 멋쟁이 뉴스 배달부 🦁📰
 
 KakaoTalk으로 배달하는 나만의 맞춤형 최신 뉴스 배달 서비스
+
+## 동영상
+https://github.com/user-attachments/assets/45e5fe34-3ae1-4d19-98b8-a11fb84ffce4
+
+
+
 
 ## 이미지
 <img width="2512" height="1316" alt="스크린샷 2025-07-28 152753" src="https://github.com/user-attachments/assets/eb6326e0-3b81-4b1c-9eec-af6eac7883d4" />
