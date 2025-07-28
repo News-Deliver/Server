@@ -71,10 +71,10 @@ KakaoTalk으로 배달하는 나만의 맞춤형 최신 뉴스 배달 서비스
 
 | 역할                             | 담당자   | 주요 업무 및 세부 기능 |
 |----------------------------------|----------|--------------------------|
-| **Backend - Auth**              | 문준원   | - 카카오 소셜 로그인 (OAuth2)<br>- JWT 토큰 발급 및 검증<br>- 사용자 정보/권한 관리<br>- 설정 관련 사용자 연동 처리<br>뉴스 수신 시간/요일/키워드 설정<br>- 설정 정보 저장 및 유효성 검증<br>- 뉴스 발송 스케줄러 구현(Spring Scheduler) |
-| **Backend - HotTopic**          | 김원중   | - ElasticSearch 기반 키워드 집계<br>- Nori 형태소 분석기 적용<br>- Top 키워드 API<br>- 키워드 기반 뉴스 검색 기능 |
+| **Backend - Auth**              | 문준원   | - 카카오 소셜 로그인 (OAuth2)<br>- JWT 토큰 발급 및 검증<br>- 사용자 정보/권한 관리 <br>- CICD 파이프라인 구축  <br>- AWS 환경구축 |
+| **Backend - HotTopic**          | 김원중   | - ElasticSearch 기반 키워드 집계<br>- Nori 형태소 분석기 적용<br>- Top 키워드 API<br>- 키워드 기반 뉴스 검색 기능 <br>- 설정 관련 사용자 연동 처리<br>뉴스 수신 시간/요일/키워드 설정<br>- 설정 정보 저장 및 유효성 검증<br>- 뉴스 발송 스케줄러 구현(Spring Scheduler)|
 | **Backend - Message**           | 정다음   | - 뉴스 발송 요청 처리<br>- KakaoTalk API 연동<br>- 뉴스 발송 이력 저장 (History 관리) |
-| **Backend + Frontend - Sub & PM**          | 류성열   | - 더보기 기능: 키워드 기반 추가 뉴스 수집 (ElasticSearch)<br>- AI 요약: Top 5 기사 자동 요약<br>- 키워드 필터링 정책 수립<br>- 전체 기획/요구사항 정의 및 UX 설계<br>- 프로젝트 일정 관리 |
+| **Backend + Frontend - Sub & PM**          | 류성열   | - 더보기 기능: 키워드 기반 추가 뉴스 수집 (ElasticSearch)<br>- AI 요약: Top 5 기사 자동 요약<br>- 키워드 필터링 정책 수립<br>- 전체 기획/요구사항 정의 및 UX 설계<br>- 프로젝트 일정 관리  <br>- 뉴스 발송 요청 처리<br>- KakaoTalk API 연동<br>- 뉴스 발송 이력 저장 (History 관리) |
 
 ##  핵심 참고 사항
 
