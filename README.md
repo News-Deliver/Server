@@ -28,7 +28,8 @@ https://github.com/user-attachments/assets/45e5fe34-3ae1-4d19-98b8-a11fb84ffce4
 
 ---
 ## 시스템 아키텍쳐
-<img width="1870" height="1054" alt="스크린샷 2025-07-28 152908" src="https://github.com/user-attachments/assets/7f41a14e-ef44-4dbb-96d8-7b22a1053903" />
+<img width="1503" height="813" alt="image" src="https://github.com/user-attachments/assets/c808f894-5015-4f01-8d51-f401d8c47673" />
+
 
 ## 프로젝트 개요
 
